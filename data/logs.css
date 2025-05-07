@@ -1,0 +1,76 @@
+.logs-container {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px 0;
+    height: 400px;
+    overflow-y: auto;
+    font-family: monospace;
+}
+
+.log-entry {
+    color: #d4d4d4;
+    margin: 5px 0;
+    padding: 5px;
+    border-bottom: 1px solid #333;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.logs-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.logs-controls button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.logs-controls button:hover {
+    background: #0056b3;
+}
+
+.logs-controls button:active {
+    background: #004085;
+}
+
+.download-logs-btn,
+.view-logs-btn {
+    background: #21cbf3;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 1em;
+    font-weight: 500;
+    cursor: pointer;
+    margin-left: 8px;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s;
+}
+
+.download-logs-btn:hover,
+.view-logs-btn:hover {
+    background: #2196f3;
+}
+
+.full-log-file {
+    background: #222;
+    color: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 18px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 0.98em;
+}

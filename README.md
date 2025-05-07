@@ -25,15 +25,15 @@ A smart water level monitoring system for ESP32 with a modern web dashboard, rea
 
 | WiFi | MQTT | Tank | Sensor |
 |------|------|------|--------|
-| ![WiFi](docs/screenshots/wifi.png) | ![MQTT](docs/screenshots/settings_mqtt.png) | ![Tank](docs/screenshots/settings_tank.png) | ![Sensor](docs/screenshots/settings_sensor.png) |
+| ![WiFi](docs/screenshots/settings_wifi.png) | ![MQTT](docs/screenshots/settings_mqtt.png) | ![Tank](docs/screenshots/settings_tank.png) | ![Sensor](docs/screenshots/settings_sensor.png) |
 
 | Display | Network | Alerts | Device |
 |---------|---------|--------|--------|
 | ![Display](docs/screenshots/settings_display.png) | ![Network](docs/screenshots/settings_network.png) | ![Alerts](docs/screenshots/settings_alerts.png) | ![Device](docs/screenshots/settings_device.png) |
 
-| Connected |
+<!-- | Connected |
 |-----------|
-| ![Connected](docs/screenshots/connected.png) |
+| ![Connected](docs/screenshots/connected.png) | -->
 
 ---
 
@@ -49,30 +49,63 @@ A smart water level monitoring system for ESP32 with a modern web dashboard, rea
 
 ## Wiring Diagram
 
-![Wiring Diagram](docs/screenshots/diagram.png)
+![Wiring Diagram](docs/screenshots/diagram.svg)
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
-- [PlatformIO](https://platformio.org/)
-- Python 3 (for upload script)
 
-### Setup
-```sh
-git clone https://github.com/yourusername/water-level-indicator.git
-cd water-level-indicator
-# Upload web files to ESP32 LittleFS
-python3 upload_files.py
-# Build and upload firmware
-platformio run -t upload
-```
+- ESP32 development board and required hardware (JSN-SR04T/HC-SR04, MAX7219, etc.)
+- [PlatformIO](https://platformio.org/) (install via VSCode extension or `pip install platformio`)
+- Python 3.x
+- USB cable for ESP32
 
-### WiFi Setup
-- Connect to the ESP32 AP if not already on your network
-- Open the web interface (see serial output for IP)
-- Configure WiFi and other settings
+### Steps
+
+1. **Clone the repository**
+   ```sh
+   git clone https://github.com/vtoxi/waterlevel-esp32.git
+   cd waterlevel-esp32
+   ```
+
+2. **(Optional) Create a Python virtual environment**
+   ```sh
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   # pip install -r requirements.txt  # If you have a requirements file
+   ```
+
+3. **Upload web files to ESP32 LittleFS**
+   > This uploads your web assets (HTML, CSS, JS, SVG, etc.) to the ESP32's filesystem.
+   ```sh
+   python3 upload_files.py
+   ```
+   - Make sure your ESP32 is connected via USB and the correct port is set in `platformio.ini`.
+
+4. **Build and upload the firmware**
+   ```sh
+   platformio run -t upload
+   ```
+   - This will compile and flash the main firmware to your ESP32.
+
+5. **Open the serial monitor (optional, for debugging)**
+   ```sh
+   platformio device monitor
+   ```
+   - This will show logs and the device's IP address after connecting to WiFi.
+
+6. **Connect to the device**
+   - If the device is not yet configured, connect to its WiFi AP (SSID will be shown in the serial monitor).
+   - Open a browser and go to the device's IP address (shown in the serial monitor or typically `192.168.4.1` for AP mode).
+
+7. **Configure WiFi and other settings**
+   - Use the web interface to set up WiFi, MQTT, tank, sensor, and other settings.
+   - Only WiFi/Network changes require a reboot; all other settings apply instantly.
+
+8. **Enjoy!**
+   - View the real-time animated tank, logs, and all features from the web dashboard.
 
 ---
 

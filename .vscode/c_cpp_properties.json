@@ -8,11 +8,13 @@
         {
             "name": "PlatformIO",
             "includePath": [
+                "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/include",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/src",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/WiFiManager",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/MQTTClient",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/DisplayManager",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/CustomWebServer",
+                "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/Logger",
                 "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/libraries/LittleFS/src",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/WaterLevelSensor",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/ConfigManager",
@@ -222,7 +224,6 @@
                 "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/dio_qspi/include",
                 "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/cores/esp32",
                 "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/variants/esp32",
-                "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/Logger",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/OTAUpdateManager",
                 "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/.pio/libdeps/esp32dev/AsyncTCP/src",
                 "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/libraries/ArduinoOTA/src",
@@ -257,11 +258,13 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
+                    "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/include",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/src",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/WiFiManager",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/MQTTClient",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/DisplayManager",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/CustomWebServer",
+                    "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/Logger",
                     "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/libraries/LittleFS/src",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/WaterLevelSensor",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/ConfigManager",
@@ -471,7 +474,6 @@
                     "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/dio_qspi/include",
                     "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/cores/esp32",
                     "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/variants/esp32",
-                    "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/Logger",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/lib/OTAUpdateManager",
                     "/Users/faisalsideline/Desktop/projects/home-automation/water-level-indicator/.pio/libdeps/esp32dev/AsyncTCP/src",
                     "/Users/faisalsideline/.platformio/packages/framework-arduinoespressif32/libraries/ArduinoOTA/src",
