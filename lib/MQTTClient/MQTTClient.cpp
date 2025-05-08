@@ -1,44 +1,45 @@
 #include "MQTTClient.h"
-#include <PubSubClient.h>
-#include <WiFi.h>
+#include <ESP8266WiFi.h>
 
-namespace {
-    WiFiClient wifiClient;
-    PubSubClient mqttClient(wifiClient);
+WiFiClient wifiClient;
+PubSubClient MQTTClient::mqttClient(wifiClient);
+
+MQTTClient::MQTTClient(Config& config) : config(config) {
+    mqttClient.setCallback([this](char* topic, byte* payload, unsigned int length) {
+        this->callback(topic, payload, length);
+    });
 }
 
-MQTTClient::MQTTClient()
-    : _port(1883)
-{}
-
-bool MQTTClient::connect(const Config& config) {
-    _server = config.mqttServer;
-    _port = config.mqttPort;
-    _user = config.mqttUser;
-    _password = config.mqttPassword;
-    _clientId = "ESP32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
-
-    mqttClient.setServer(_server.c_str(), _port);
-
-    if (mqttClient.connected())
-        return true;
-
-    // Try to connect (short-circuit if no server)
-    return (!_server.isEmpty() && mqttClient.connect(
-        _clientId.c_str(),
-        _user.isEmpty() ? nullptr : _user.c_str(),
-        _password.isEmpty() ? nullptr : _password.c_str()
-    ));
-}
-
-bool MQTTClient::publish(const String& topic, const String& payload) {
-    return mqttClient.connected() && mqttClient.publish(topic.c_str(), payload.c_str());
+void MQTTClient::begin() {
+    if (strlen(config.mqttServer) > 0) {
+        mqttClient.setServer(config.mqttServer, config.mqttPort);
+        if (mqttClient.connect("WaterLevel", config.mqttUser, config.mqttPassword)) {
+            mqttClient.subscribe(config.mqttTopic);
+        }
+    }
 }
 
 void MQTTClient::loop() {
-    mqttClient.loop();
+    if (mqttClient.connected()) {
+        mqttClient.loop();
+    } else if (strlen(config.mqttServer) > 0) {
+        if (mqttClient.connect("WaterLevel", config.mqttUser, config.mqttPassword)) {
+            mqttClient.subscribe(config.mqttTopic);
+        }
+    }
 }
 
-bool MQTTClient::isConnected() const {
-    return mqttClient.connected();
+void MQTTClient::publish(const char* topic, const char* payload) {
+    if (mqttClient.connected()) {
+        mqttClient.publish(topic, payload);
+    }
+}
+
+void MQTTClient::callback(char* topic, byte* payload, unsigned int length) {
+    // Handle incoming messages
+    // For now, we just print them
+    char message[length + 1];
+    memcpy(message, payload, length);
+    message[length] = '\0';
+    Serial.printf("Message arrived [%s]: %s\n", topic, message);
 }

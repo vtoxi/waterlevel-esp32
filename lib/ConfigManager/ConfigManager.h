@@ -1,36 +1,23 @@
 #pragma once
-#include <WString.h>
+#include <Arduino.h>
+#include <EEPROM.h>
+#include "Config.h"
 
-struct Config {
-    String wifiSsid;
-    String wifiPassword;
-    String mqttServer;
-    int mqttPort;
-    String mqttUser;
-    String mqttPassword;
-    String mqttTopic;
-    float tankDepth = 100.0f;
-    String outputUnit = "cm";
-    float sensorOffset = 0.0f;
-    float sensorFull = 0.0f;
-    int displayBrightness = 8;
-    String displayMode = "level";
-    String staticIp = "";
-    String gateway = "";
-    String subnet = "";
-    String hostname = "";
-    int alertLow = 0;
-    int alertHigh = 100;
-    String alertMethod = "mqtt";
-    String deviceName = "";
-    String otaEnabled = "off";
-};
+#define CONFIG_MAGIC 0x574C  // "WL" in hex
+#define MAX_STRING_LENGTH 32
 
 class ConfigManager {
 public:
     ConfigManager();
-
-    bool load(Config& config) const;
-    bool save(const Config& config) const;
+    bool load(Config&) const;
+    bool save(const Config&) const;
     void reset() const;
+    static bool saveConfig(const Config& config);
+    static bool loadConfig(Config& config);
+    static void resetConfig(Config& config);
+
+private:
+    static const char* PREF_NAMESPACE;
+    static const int EEPROM_SIZE;
+    static const int CONFIG_VERSION;
 };

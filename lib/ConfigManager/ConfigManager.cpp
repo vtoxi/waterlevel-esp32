@@ -1,50 +1,72 @@
 #include "ConfigManager.h"
-#include <Preferences.h>
+#include <EEPROM.h>
 
-#define PREF_NAMESPACE "waterlevel"
+const char* ConfigManager::PREF_NAMESPACE = "waterlevel";
+const int ConfigManager::EEPROM_SIZE = 512;
+const int ConfigManager::CONFIG_VERSION = 1;
 
-ConfigManager::ConfigManager() {}
+ConfigManager::ConfigManager() {
+    EEPROM.begin(EEPROM_SIZE);
+}
 
 bool ConfigManager::load(Config& config) const {
-    Preferences prefs;
-    if (!prefs.begin(PREF_NAMESPACE, true)) return false;
+    if (EEPROM.read(0) != CONFIG_VERSION) {
+        return false;
+    }
 
-    config.wifiSsid = prefs.getString("wifiSsid", "");
-    config.wifiPassword = prefs.getString("wifiPassword", "");
-    config.mqttServer = prefs.getString("mqttServer", "");
-    config.mqttPort = prefs.getInt("mqttPort", 1883);
-    config.mqttUser = prefs.getString("mqttUser", "");
-    config.mqttPassword = prefs.getString("mqttPassword", "");
-    config.mqttTopic = prefs.getString("mqttTopic", "home/waterlevel");
-    config.tankDepth = prefs.getFloat("tankDepth", 100.0f);
-    config.outputUnit = prefs.getString("outputUnit", "cm");
-
-    prefs.end();
+    int addr = 1;
+    EEPROM.get(addr, config);
     return true;
 }
 
 bool ConfigManager::save(const Config& config) const {
-    Preferences prefs;
-    if (!prefs.begin(PREF_NAMESPACE, false)) return false;
-
-    prefs.putString("wifiSsid", config.wifiSsid);
-    prefs.putString("wifiPassword", config.wifiPassword);
-    prefs.putString("mqttServer", config.mqttServer);
-    prefs.putInt   ("mqttPort", config.mqttPort);
-    prefs.putString("mqttUser", config.mqttUser);
-    prefs.putString("mqttPassword", config.mqttPassword);
-    prefs.putString("mqttTopic", config.mqttTopic);
-    prefs.putFloat("tankDepth", config.tankDepth);
-    prefs.putString("outputUnit", config.outputUnit);
-
-    prefs.end();
-    return true;
+    EEPROM.write(0, CONFIG_VERSION);
+    int addr = 1;
+    EEPROM.put(addr, config);
+    return EEPROM.commit();
 }
 
 void ConfigManager::reset() const {
-    Preferences prefs;
-    if (prefs.begin(PREF_NAMESPACE, false)) {
-        prefs.clear();
-        prefs.end();
+    for (int i = 0; i < EEPROM_SIZE; i++) {
+        EEPROM.write(i, 0);
     }
+    EEPROM.commit();
+}
+
+bool ConfigManager::saveConfig(const Config& config) {
+    EEPROM.begin(sizeof(Config));
+    EEPROM.put(0, config);
+    return EEPROM.commit();
+}
+
+bool ConfigManager::loadConfig(Config& config) {
+    EEPROM.begin(sizeof(Config));
+    EEPROM.get(0, config);
+    return config.magic == CONFIG_MAGIC;
+}
+
+void ConfigManager::resetConfig(Config& config) {
+    config.magic = CONFIG_MAGIC;
+    strlcpy(config.wifiSSID, "", sizeof(config.wifiSSID));
+    strlcpy(config.wifiPassword, "", sizeof(config.wifiPassword));
+    strlcpy(config.mqttServer, "", sizeof(config.mqttServer));
+    config.mqttPort = 1883;
+    strlcpy(config.mqttUser, "", sizeof(config.mqttUser));
+    strlcpy(config.mqttPassword, "", sizeof(config.mqttPassword));
+    strlcpy(config.mqttTopic, "home/waterlevel", sizeof(config.mqttTopic));
+    config.tankDepth = 100.0f;
+    strlcpy(config.outputUnit, "cm", sizeof(config.outputUnit));
+    config.sensorOffset = 0.0f;
+    config.sensorFull = 100.0f;
+    config.displayBrightness = 8;
+    strlcpy(config.displayMode, "level", sizeof(config.displayMode));
+    strlcpy(config.staticIp, "", sizeof(config.staticIp));
+    strlcpy(config.gateway, "", sizeof(config.gateway));
+    strlcpy(config.subnet, "", sizeof(config.subnet));
+    strlcpy(config.hostname, "", sizeof(config.hostname));
+    config.alertLow = 20;
+    config.alertHigh = 80;
+    strlcpy(config.alertMethod, "mqtt", sizeof(config.alertMethod));
+    strlcpy(config.deviceName, "", sizeof(config.deviceName));
+    strlcpy(config.otaEnabled, "off", sizeof(config.otaEnabled));
 }

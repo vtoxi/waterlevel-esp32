@@ -1,18 +1,17 @@
 #pragma once
-#include <WString.h>
-#include "ConfigManager.h"
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+#include "Config.h"
 
 class MQTTClient {
-public:
-    MQTTClient();
-    bool connect(const Config& config);
-    bool publish(const String& topic, const String& payload);
-    void loop();
-    bool isConnected() const;
 private:
-    String _server;
-    int _port;
-    String _user;
-    String _password;
-    String _clientId;
+    static PubSubClient mqttClient;
+    Config& config;
+    void callback(char* topic, byte* payload, unsigned int length);
+
+public:
+    MQTTClient(Config& config);
+    void begin();
+    void loop();
+    void publish(const char* topic, const char* payload);
 };

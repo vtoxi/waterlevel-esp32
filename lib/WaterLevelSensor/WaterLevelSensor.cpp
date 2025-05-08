@@ -1,37 +1,48 @@
 #include "WaterLevelSensor.h"
 #include <Arduino.h>
 
-WaterLevelSensor::WaterLevelSensor(int triggerPin, int echoPin, float tankHeightCm)
-    : _triggerPin(triggerPin), _echoPin(echoPin), _tankHeightCm(tankHeightCm)
-{
-    pinMode(_triggerPin, OUTPUT);
-    pinMode(_echoPin, INPUT);
+#define TRIGGER_PIN 5  // GPIO5
+#define ECHO_PIN 18    // GPIO18
+#define MEASUREMENT_INTERVAL 1000  // 1 second
+
+WaterLevelSensor::WaterLevelSensor() : lastDistance(0), lastMeasurement(0) {}
+
+void WaterLevelSensor::begin() {
+    pinMode(TRIGGER_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    digitalWrite(TRIGGER_PIN, LOW);
 }
 
-float WaterLevelSensor::readDistanceCm() const {
-    return measureDistance();
+void WaterLevelSensor::loop() {
+    unsigned long now = millis();
+    if (now - lastMeasurement >= MEASUREMENT_INTERVAL) {
+        measure();
+        lastMeasurement = now;
+    }
+}
+
+void WaterLevelSensor::measure() {
+    // Send trigger pulse
+    digitalWrite(TRIGGER_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIGGER_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIGGER_PIN, LOW);
+
+    // Measure echo pulse duration
+    long duration = pulseIn(ECHO_PIN, HIGH);
+    
+    // Convert to distance in cm
+    lastDistance = duration * 0.034 / 2;
+}
+
+float WaterLevelSensor::getRawDistance() const {
+    return lastDistance;
 }
 
 float WaterLevelSensor::getWaterLevelPercent() const {
-    float distance = measureDistance();
-    if (distance < 0) return 0.0f; // Sensor error
-    float level = (_tankHeightCm - distance) / _tankHeightCm * 100.0f;
-    return level < 0 ? 0.0f : (level > 100.0f ? 100.0f : level);
-}
-
-float WaterLevelSensor::measureDistance() const {
-    // Send trigger pulse
-    digitalWrite(_triggerPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(_triggerPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(_triggerPin, LOW);
-
-    // Read echo pulse
-    long duration = pulseIn(_echoPin, HIGH, 30000); // 30ms timeout (~5m max)
-    if (duration == 0) return -1.0f; // Timeout/error
-
-    // Calculate distance in cm (speed of sound = 343 m/s)
-    float distance = duration * 0.0343f / 2.0f;
-    return distance;
+    // Assuming tank height is 100cm and sensor is mounted at the top
+    float tankHeight = 100.0;
+    float waterLevel = tankHeight - lastDistance;
+    return constrain(waterLevel / tankHeight * 100, 0, 100);
 }

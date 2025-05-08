@@ -1,11 +1,18 @@
 #pragma once
-#include <WString.h>
-#include "ConfigManager.h"
+#include <ESP8266WiFi.h>
+#include "Config.h"
 
 class WiFiManager {
 public:
     WiFiManager();
-    bool connect(const Config& config) const;
-    void startAP(const char* apSsid = "WaterLevelSetup") const;
+    void begin(const Config& config);
+    void loop();
+    bool connect(const Config& config);
+    void startAP(const char* ssid);
+    void stopAP();
     bool isConnected() const;
+    String getLocalIP() const;
+private:
+    bool apMode;
+    unsigned long lastReconnectAttempt;
 };

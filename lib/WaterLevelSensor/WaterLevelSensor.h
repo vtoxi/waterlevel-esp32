@@ -1,20 +1,16 @@
 #pragma once
+#include <Arduino.h>
 
 class WaterLevelSensor {
 public:
-    WaterLevelSensor(int triggerPin, int echoPin, float tankHeightCm);
-
-    // Returns the measured distance in centimeters
-    float readDistanceCm() const;
-
-    // Returns the water level as a percentage (0-100)
+    WaterLevelSensor();
+    void begin();
+    void loop();
     float getWaterLevelPercent() const;
+    float getRawDistance() const;
 
 private:
-    int _triggerPin;
-    int _echoPin;
-    float _tankHeightCm;
-
-    // Helper to measure distance
-    float measureDistance() const;
+    float lastDistance;
+    unsigned long lastMeasurement;
+    void measure();
 };

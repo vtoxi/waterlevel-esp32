@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include "Logger.h"
+#include <ESPAsyncWebServer.h>
 
 String settingsNav(const String &active)
 {
@@ -82,41 +83,61 @@ String wifiWarning() {
     return WiFi.isConnected() ? "" : "<div class='wifi-warning'>WiFi is not connected. Some features may not work.</div>";
 }
 
-CustomWebServer::CustomWebServer()
-    : _server(80)
-{
-}
+AsyncWebServer server(80);
 
-void CustomWebServer::begin(ConfigManager &configManager, WaterLevelSensor &sensor)
-{
-    Logger::info("Initializing web server...");
-    LittleFS.begin();
-    File root = LittleFS.open("/");
-    File file = root.openNextFile();
-    while(file){
-        Logger::info("Found file: " + String(file.name()));
-        file = root.openNextFile();
+CustomWebServer::CustomWebServer() : server(80) {}
+
+void CustomWebServer::begin(ConfigManager& configManager, WaterLevelSensor& sensor) {
+    if (!LittleFS.begin()) {
+        Serial.println("Failed to mount file system");
+        return;
     }
-    
-    // Initialize event source for logs
-    _eventSource = new AsyncEventSource("/logs/stream");
-    _eventSource->onConnect([this](AsyncEventSourceClient *client) {
-        if (client->lastId()) {
-            Logger::info("Client reconnected! Last message ID: " + String(client->lastId()));
+
+    // Serve static files with read mode
+    server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+
+    // API endpoints
+    server.on("/api/config/wifi", HTTP_POST, [&configManager](AsyncWebServerRequest* request) {
+        Config config;
+        configManager.load(config);
+        
+        if (request->hasParam("ssid", true) && request->hasParam("wifipass", true)) {
+            strncpy(config.wifiSSID, request->getParam("ssid", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.wifiPassword, request->getParam("wifipass", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            configManager.save(config);
+            request->send(200, "text/plain", "WiFi settings updated");
+        } else {
+            request->send(400, "text/plain", "Missing parameters");
         }
-        client->send("Connected to log stream", NULL, millis(), 1000);
     });
-    _server.addHandler(_eventSource);
-    
-    setupRoutes(configManager, sensor);
-    _server.begin();
-    _server.serveStatic("/style.css", LittleFS, "/style.css");
-    _server.serveStatic("/script.js", LittleFS, "/script.js");
-    _server.serveStatic("/logs.css", LittleFS, "/logs.css");
-    _server.serveStatic("/logs.js", LittleFS, "/logs.js");
-    _server.serveStatic("/diagram.svg", LittleFS, "/diagram.svg");
-    _server.serveStatic("/favicon.png", LittleFS, "/favicon.png");
-    Logger::info("Web server started successfully");
+
+    server.on("/api/config/mqtt", HTTP_POST, [&configManager](AsyncWebServerRequest* request) {
+        Config config;
+        configManager.load(config);
+        
+        if (request->hasParam("mqtt", true)) {
+            strncpy(config.mqttServer, request->getParam("mqtt", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            config.mqttPort = request->hasParam("mqttport", true) ? 
+                request->getParam("mqttport", true)->value().toInt() : 1883;
+            
+            if (request->hasParam("mqttuser", true)) {
+                strncpy(config.mqttUser, request->getParam("mqttuser", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            }
+            if (request->hasParam("mqttpass", true)) {
+                strncpy(config.mqttPassword, request->getParam("mqttpass", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            }
+            if (request->hasParam("mqtttopic", true)) {
+                strncpy(config.mqttTopic, request->getParam("mqtttopic", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            }
+            
+            configManager.save(config);
+            request->send(200, "text/plain", "MQTT settings updated");
+        } else {
+            request->send(400, "text/plain", "Missing parameters");
+        }
+    });
+
+    server.begin();
 }
 
 // Helper function to handle settings updates
@@ -140,14 +161,14 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
     };
 
     // --- Water Level API Endpoint ---
-    _server.on("/api/level", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    server.on("/api/level", HTTP_GET, [&](AsyncWebServerRequest *request) {
         float percent = sensor.getWaterLevelPercent();
         String json = "{\"level\":" + String(percent, 1) + "}";
         request->send(200, "application/json", json);
     });
 
     // --- Dashboard with Animated Water Tank ---
-    _server.on("/", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    server.on("/", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Logger::info("Home page accessed from IP: " + request->client()->remoteIP().toString());
         String html = getHtmlHead("Device Home");
         html += settingsNav("home");
@@ -258,60 +279,67 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         request->send(200, "text/html", html);
     });
 
-    _server.on("/", HTTP_POST, [&](AsyncWebServerRequest *request)
+    server.on("/", HTTP_POST, [&](AsyncWebServerRequest *request)
                {
         handleSettingsUpdate(request, "WiFi", [&](Config& config) {
-            config.wifiSsid = request->getParam("ssid", true)->value();
-            config.wifiPassword = request->getParam("wifipass", true)->value();
+            strncpy(config.wifiSSID, request->getParam("ssid", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.wifiPassword, request->getParam("wifipass", true)->value().c_str(), MAX_STRING_LENGTH - 1);
         }, true);
     });
 
-    // --- MQTT Settings Page ---
-    _server.on("/settings/mqtt", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    // --- MQTT Setup Page ---
+    server.on("/settings/mqtt", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
-
+        
         String html = getHtmlHead("MQTT Setup");
         html += settingsNav("mqtt");
         html += R"rawliteral(
-  <div class="container">
-)rawliteral";
+  <div class="container">)rawliteral";
         html += wifiWarning();
         html += R"rawliteral(
     <h2>MQTT Setup</h2>
     <form method="POST" action="/settings/mqtt">
       <label for="mqtt">MQTT Server</label>
-      <input name="mqtt" id="mqtt" type="text" value=")rawliteral" + config.mqttServer + R"rawliteral(" required>
+      <input name="mqtt" id="mqtt" type="text" value=")rawliteral";
+        html += String(config.mqttServer);
+        html += R"rawliteral(" required>
       <label for="port">MQTT Port</label>
-      <input name="port" id="port" type="number" value=")rawliteral" + String(config.mqttPort) + R"rawliteral(" required>
+      <input name="port" id="port" type="number" value=")rawliteral";
+        html += String(config.mqttPort);
+        html += R"rawliteral(" required>
       <label for="mqttuser">MQTT User</label>
-      <input name="mqttuser" id="mqttuser" type="text" value=")rawliteral" + config.mqttUser + R"rawliteral(">
+      <input name="mqttuser" id="mqttuser" type="text" value=")rawliteral";
+        html += String(config.mqttUser);
+        html += R"rawliteral(">
       <label for="mqttpass">MQTT Password</label>
-      <input name="mqttpass" id="mqttpass" type="password" value=")rawliteral" + config.mqttPassword + R"rawliteral(">
+      <input name="mqttpass" id="mqttpass" type="password" value=")rawliteral";
+        html += String(config.mqttPassword);
+        html += R"rawliteral(">
       <label for="mqtttopic">MQTT Topic</label>
-      <input name="mqtttopic" id="mqtttopic" type="text" value=")rawliteral" + config.mqttTopic + R"rawliteral(" required>
+      <input name="mqtttopic" id="mqtttopic" type="text" value=")rawliteral";
+        html += String(config.mqttTopic);
+        html += R"rawliteral(" required>
       <input type="submit" value="Save">
     </form>
     <a href="/" class="back-home">← Back to Home</a>
-  </div>
-)rawliteral";
+  </div>)rawliteral";
         html += getHtmlFooter();
         request->send(200, "text/html", html);
     });
 
-    _server.on("/settings/mqtt", HTTP_POST, [&](AsyncWebServerRequest *request)
-               {
+    server.on("/settings/mqtt", HTTP_POST, [&](AsyncWebServerRequest *request) {
         handleSettingsUpdate(request, "MQTT", [&](Config& config) {
-            config.mqttServer = request->getParam("mqtt", true)->value();
+            strncpy(config.mqttServer, request->getParam("mqtt", true)->value().c_str(), MAX_STRING_LENGTH - 1);
             config.mqttPort = request->getParam("port", true)->value().toInt();
-            config.mqttUser = request->getParam("mqttuser", true)->value();
-            config.mqttPassword = request->getParam("mqttpass", true)->value();
-            config.mqttTopic = request->getParam("mqtttopic", true)->value();
+            strncpy(config.mqttUser, request->getParam("mqttuser", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.mqttPassword, request->getParam("mqttpass", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.mqttTopic, request->getParam("mqtttopic", true)->value().c_str(), MAX_STRING_LENGTH - 1);
         }, false);
     });
 
     // --- Tank Settings Page ---
-    _server.on("/settings/tank", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    server.on("/settings/tank", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
 
@@ -325,15 +353,15 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
       <div class="unit-row">
         <input name="tankDepth" id="tankDepth" type="number" step="0.1" value=")rawliteral" + String(config.tankDepth, 1) + R"rawliteral(" required>
         <select name="tankDepthUnit" id="tankDepthUnit">
-          <option value="cm" )rawliteral" + (config.outputUnit == "cm" ? "selected" : "") + R"rawliteral(>cm</option>
-          <option value="in" )rawliteral" + (config.outputUnit == "in" ? "selected" : "") + R"rawliteral(>in</option>
+          <option value="cm" )rawliteral" + (strcmp(config.outputUnit, "cm") == 0 ? "selected" : "") + R"rawliteral(>cm</option>
+          <option value="in" )rawliteral" + (strcmp(config.outputUnit, "in") == 0 ? "selected" : "") + R"rawliteral(>in</option>
         </select>
       </div>
       <label for="outputUnit">Output Display Unit</label>
       <select name="outputUnit" id="outputUnit">
-        <option value="cm" )rawliteral" + (config.outputUnit == "cm" ? "selected" : "") + R"rawliteral(>Centimeters (cm)</option>
-        <option value="in" )rawliteral" + (config.outputUnit == "in" ? "selected" : "") + R"rawliteral(>Inches (in)</option>
-        <option value="percent" )rawliteral" + (config.outputUnit == "percent" ? "selected" : "") + R"rawliteral(>Percent (%)</option>
+        <option value="cm" )rawliteral" + (strcmp(config.outputUnit, "cm") == 0 ? "selected" : "") + R"rawliteral(>Centimeters (cm)</option>
+        <option value="in" )rawliteral" + (strcmp(config.outputUnit, "in") == 0 ? "selected" : "") + R"rawliteral(>Inches (in)</option>
+        <option value="percent" )rawliteral" + (strcmp(config.outputUnit, "percent") == 0 ? "selected" : "") + R"rawliteral(>Percent (%)</option>
       </select>
       <input type="submit" value="Save">
     </form>
@@ -344,7 +372,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         request->send(200, "text/html", html);
     });
 
-    _server.on("/settings/tank", HTTP_POST, [&](AsyncWebServerRequest *request)
+    server.on("/settings/tank", HTTP_POST, [&](AsyncWebServerRequest *request)
                {
         handleSettingsUpdate(request, "Tank", [&](Config& config) {
             float depth = request->getParam("tankDepth", true)->value().toFloat();
@@ -354,12 +382,12 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
                 Logger::info("Converting tank depth from inches to cm: " + String(depth));
             }
             config.tankDepth = depth;
-            config.outputUnit = request->getParam("outputUnit", true)->value();
+            strncpy(config.outputUnit, request->getParam("outputUnit", true)->value().c_str(), MAX_STRING_LENGTH - 1);
         }, false);
     });
 
     // Add this route in setupRoutes:
-    _server.on("/connected", HTTP_GET, [&](AsyncWebServerRequest *request)
+    server.on("/connected", HTTP_GET, [&](AsyncWebServerRequest *request)
                {
         String ip = WiFi.localIP().toString();
         String html = getHtmlHead("Connected");
@@ -373,7 +401,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         html += getHtmlFooter();
         request->send(200, "text/html", html); });
 
-    _server.on("/settings/sensor", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    server.on("/settings/sensor", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
         String html = getHtmlHead("Sensor Calibration");
@@ -395,7 +423,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         request->send(200, "text/html", html);
     });
 
-    _server.on("/settings/sensor", HTTP_POST, [&](AsyncWebServerRequest *request)
+    server.on("/settings/sensor", HTTP_POST, [&](AsyncWebServerRequest *request)
                {
         handleSettingsUpdate(request, "Sensor", [&](Config& config) {
             config.sensorOffset = request->getParam("offset", true)->value().toFloat();
@@ -403,41 +431,51 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         }, false);
     });
 
-    _server.on("/settings/display", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    // --- Display Settings Page ---
+    server.on("/settings/display", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
+        
         String html = getHtmlHead("Display Settings");
         html += settingsNav("display");
         html += R"rawliteral(
-<div class="container">
-<h2>Display Settings</h2>
-<form method="POST" action="/settings/display">
-  <label for="brightness">Brightness (0-15)</label>
-  <input name="brightness" id="brightness" type="number" min="0" max="15" value=")" + String(config.displayBrightness) + R"(" required>
-  <label for="mode">Display Mode</label>
-  <select name="mode" id="mode">
-    <option value="level" )" + (config.displayMode == "level" ? "selected" : "") + R"(">Water Level</option>
-    <option value="percent" )" + (config.displayMode == "percent" ? "selected" : "") + R"(">Percent</option>
-    <option value="text" )" + (config.displayMode == "text" ? "selected" : "") + R"(">Scrolling Text</option>
-  </select>
-  <input type="submit" value="Save">
-</form>
-<a href="/" class="back-home">← Back to Home</a>
-</div>
+  <div class="container">
+    <h2>Display Settings</h2>
+    <form method="POST" action="/settings/display">
+      <label for="brightness">Brightness (0-15)</label>
+      <input name="brightness" id="brightness" type="number" min="0" max="15" value=")rawliteral";
+        html += String(config.displayBrightness);
+        html += R"rawliteral(" required>
+      <label for="mode">Display Mode</label>
+      <select name="mode" id="mode">
+        <option value="level" )rawliteral";
+        html += (strcmp(config.displayMode, "level") == 0 ? "selected" : "");
+        html += R"rawliteral(>Water Level</option>
+        <option value="percent" )rawliteral";
+        html += (strcmp(config.displayMode, "percent") == 0 ? "selected" : "");
+        html += R"rawliteral(>Percentage</option>
+        <option value="raw" )rawliteral";
+        html += (strcmp(config.displayMode, "raw") == 0 ? "selected" : "");
+        html += R"rawliteral(>Raw Distance</option>
+      </select>
+      <input type="submit" value="Save">
+    </form>
+    <a href="/" class="back-home">← Back to Home</a>
+  </div>
 )rawliteral";
         html += getHtmlFooter();
         request->send(200, "text/html", html);
     });
 
-    _server.on("/settings/display", HTTP_POST, [&](AsyncWebServerRequest *request)
-               {
+    server.on("/settings/display", HTTP_POST, [&](AsyncWebServerRequest *request) {
         handleSettingsUpdate(request, "Display", [&](Config& config) {
             config.displayBrightness = request->getParam("brightness", true)->value().toInt();
-            config.displayMode = request->getParam("mode", true)->value();
+            strncpy(config.displayMode, request->getParam("mode", true)->value().c_str(), MAX_STRING_LENGTH - 1);
         }, false);
     });
 
-    _server.on("/settings/network", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    // --- Network Settings Page ---
+    server.on("/settings/network", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
         String html = getHtmlHead("Network Settings");
@@ -447,14 +485,22 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
 <h2>Network Settings</h2>
 <form method="POST" action="/settings/network">
   <label for="staticip">Static IP</label>
-  <input name="staticip" id="staticip" type="text" value=")rawliteral" + (config.staticIp.length() ? config.staticIp : "") + R"rawliteral(" placeholder="192.168.1.100">
+  <input name="staticip" id="staticip" type="text" value=")rawliteral";
+    html += String(config.staticIp);
+    html += R"rawliteral(" placeholder="192.168.1.100">
   <label for="gateway">Gateway</label>
-  <input name="gateway" id="gateway" type="text" value=")rawliteral" + (config.gateway.length() ? config.gateway : "") + R"rawliteral(" placeholder="192.168.1.1">
+  <input name="gateway" id="gateway" type="text" value=")rawliteral";
+    html += String(config.gateway);
+    html += R"rawliteral(" placeholder="192.168.1.1">
   <label for="subnet">Subnet Mask</label>
-  <input name="subnet" id="subnet" type="text" value=")rawliteral" + (config.subnet.length() ? config.subnet : "") + R"rawliteral(" placeholder="255.255.255.0">
+  <input name="subnet" id="subnet" type="text" value=")rawliteral";
+    html += String(config.subnet);
+    html += R"rawliteral(" placeholder="255.255.255.0">
   <label for="hostname">Hostname</label>
-  <input name="hostname" id="hostname" type="text" value=")rawliteral" + (config.hostname.length() ? config.hostname : "") + R"rawliteral(" placeholder="waterlevel-01">
-  <input type="submit" value="Save & Reboot">
+  <input name="hostname" id="hostname" type="text" value=")rawliteral";
+    html += String(config.hostname);
+    html += R"rawliteral(" placeholder="waterlevel">
+  <input type="submit" value="Save">
 </form>
 <a href="/" class="back-home">← Back to Home</a>
 </div>
@@ -463,16 +509,16 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         request->send(200, "text/html", html);
     });
 
-    _server.on("/settings/network", HTTP_POST, [&](AsyncWebServerRequest *request){
+    server.on("/settings/network", HTTP_POST, [&](AsyncWebServerRequest *request){
         handleSettingsUpdate(request, "Network", [&](Config& config) {
-            config.staticIp = request->getParam("staticip", true)->value();
-            config.gateway = request->getParam("gateway", true)->value();
-            config.subnet = request->getParam("subnet", true)->value();
-            config.hostname = request->getParam("hostname", true)->value();
+            strncpy(config.staticIp, request->getParam("staticip", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.gateway, request->getParam("gateway", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.subnet, request->getParam("subnet", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.hostname, request->getParam("hostname", true)->value().c_str(), MAX_STRING_LENGTH - 1);
         }, true);
     });
 
-    _server.on("/settings/alerts", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    server.on("/settings/alerts", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
         String html = getHtmlHead("Alert Settings");
@@ -487,9 +533,9 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
   <input name="high" id="high" type="number" min="0" max="100" value=")" + String(config.alertHigh) + R"(">
   <label for="alertmethod">Alert Method</label>
   <select name="alertmethod" id="alertmethod">
-    <option value="mqtt" )" + (config.alertMethod == "mqtt" ? "selected" : "") + R"(>MQTT</option>
-    <option value="buzzer" )" + (config.alertMethod == "buzzer" ? "selected" : "") + R"(>Buzzer</option>
-    <option value="led" )" + (config.alertMethod == "led" ? "selected" : "") + R"(>LED</option>
+    <option value="mqtt" )" + (strcmp(config.alertMethod, "mqtt") == 0 ? "selected" : "") + R"(>MQTT</option>
+    <option value="buzzer" )" + (strcmp(config.alertMethod, "buzzer") == 0 ? "selected" : "") + R"(>Buzzer</option>
+    <option value="led" )" + (strcmp(config.alertMethod, "led") == 0 ? "selected" : "") + R"(>LED</option>
   </select>
   <input type="submit" value="Save">
 </form>
@@ -500,189 +546,130 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         request->send(200, "text/html", html);
     });
 
-    _server.on("/settings/alerts", HTTP_POST, [&](AsyncWebServerRequest *request){
+    server.on("/settings/alerts", HTTP_POST, [&](AsyncWebServerRequest *request){
         handleSettingsUpdate(request, "Alert", [&](Config& config) {
             config.alertLow = request->getParam("low", true)->value().toInt();
             config.alertHigh = request->getParam("high", true)->value().toInt();
-            config.alertMethod = request->getParam("alertmethod", true)->value();
+            strncpy(config.alertMethod, request->getParam("alertmethod", true)->value().c_str(), MAX_STRING_LENGTH - 1);
         }, false);
     });
 
-    _server.on("/settings/device", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    // --- Device Settings Page ---
+    server.on("/settings/device", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
-        String html = getHtmlHead("Device Info");
+        
+        String html = getHtmlHead("Device Settings");
         html += settingsNav("device");
         html += R"rawliteral(
-<div class="container">
-<h2>Device Info / Reset</h2>
-<form method="POST" action="/settings/device">
-  <label for="devicename">Device Name</label>
-  <input name="devicename" id="devicename" type="text" value=")rawliteral" + (config.deviceName.length() ? config.deviceName : "") + R"rawliteral(" placeholder="waterlevel-01">
-  <label for="ota">Enable OTA Update</label>
-  <select name="ota" id="ota">
-    <option value="on" )" + (config.otaEnabled == "on" ? "selected" : "") + R"(>On</option>
-    <option value="off" )" + (config.otaEnabled == "off" ? "selected" : "") + R"(>Off</option>
-  </select>
-  <input type="submit" value="Save">
-</form>
-<form method="POST" action="/settings/device/reset" onsubmit="return confirm('Are you sure you want to perform a factory reset? This will erase all settings and cannot be undone.');">
-  <input type="submit" value="Factory Reset" style="background:#f44336;color:#fff;">
-</form>
-<a href="/" class="back-home">← Back to Home</a>
-</div>
+  <div class="container">
+    <h2>Device Settings</h2>
+    <form method="POST" action="/settings/device">
+      <label for="devicename">Device Name</label>
+      <input name="devicename" id="devicename" type="text" value=")rawliteral";
+        html += String(config.deviceName);
+        html += R"rawliteral(" placeholder="waterlevel-01">
+      <label for="ota">Enable OTA Update</label>
+      <select name="ota" id="ota">)rawliteral";
+        html += String("<option value=\"on\"") + (strcmp(config.otaEnabled, "on") == 0 ? " selected" : "") + ">On</option>";
+        html += String("<option value=\"off\"") + (strcmp(config.otaEnabled, "off") == 0 ? " selected" : "") + ">Off</option>";
+        html += R"rawliteral(
+      </select>
+      <input type="submit" value="Save">
+    </form>
+    <form method="POST" action="/settings/device/reset" onsubmit="return confirm('Are you sure you want to perform a factory reset? This will erase all settings and cannot be undone.');">
+      <input type="submit" value="Factory Reset" style="background:#f44336;color:#fff;">
+    </form>
+    <a href="/" class="back-home">← Back to Home</a>
+  </div>
 )rawliteral";
         html += getHtmlFooter();
         request->send(200, "text/html", html);
     });
 
-    _server.on("/settings/device", HTTP_POST, [&](AsyncWebServerRequest *request)
-               {
+    server.on("/settings/device", HTTP_POST, [&](AsyncWebServerRequest *request) {
         handleSettingsUpdate(request, "Device", [&](Config& config) {
-            config.deviceName = request->getParam("devicename", true)->value();
-            config.otaEnabled = request->getParam("ota", true)->value();
+            strncpy(config.deviceName, request->getParam("devicename", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.otaEnabled, request->getParam("ota", true)->value().c_str(), MAX_STRING_LENGTH - 1);
         }, false);
     });
 
-    _server.on("/settings/device/reset", HTTP_POST, [&](AsyncWebServerRequest *request) {
+    server.on("/settings/device/reset", HTTP_POST, [&](AsyncWebServerRequest *request) {
         Logger::info("Factory reset requested");
         Config config;
         configManager.load(config);
         
         // Reset all values to defaults
-        config.wifiSsid = "";
-        config.wifiPassword = "";
-        config.mqttServer = "";
+        strncpy(config.wifiSSID, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.wifiPassword, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.mqttServer, "", MAX_STRING_LENGTH - 1);
         config.mqttPort = 1883;
-        config.mqttUser = "";
-        config.mqttPassword = "";
-        config.mqttTopic = "home/waterlevel";
+        strncpy(config.mqttUser, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.mqttPassword, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.mqttTopic, "home/waterlevel", MAX_STRING_LENGTH - 1);
         config.tankDepth = 100.0f;
-        config.outputUnit = "cm";
+        strncpy(config.outputUnit, "cm", MAX_STRING_LENGTH - 1);
         config.sensorOffset = 0.0f;
-        config.sensorFull = 0.0f;
+        config.sensorFull = 100.0f;
         config.displayBrightness = 8;
-        config.displayMode = "level";
-        config.staticIp = "";
-        config.gateway = "";
-        config.subnet = "";
-        config.hostname = "";
-        config.alertLow = 0;
-        config.alertHigh = 100;
-        config.alertMethod = "mqtt";
-        config.deviceName = "";
-        config.otaEnabled = "off";
+        strncpy(config.displayMode, "level", MAX_STRING_LENGTH - 1);
+        strncpy(config.staticIp, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.gateway, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.subnet, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.hostname, "", MAX_STRING_LENGTH - 1);
+        config.alertLow = 20;
+        config.alertHigh = 80;
+        strncpy(config.alertMethod, "mqtt", MAX_STRING_LENGTH - 1);
+        strncpy(config.deviceName, "", MAX_STRING_LENGTH - 1);
+        strncpy(config.otaEnabled, "off", MAX_STRING_LENGTH - 1);
         
-        Logger::info("Resetting all settings to defaults");
         if (configManager.save(config)) {
-            configManager.reset();
-            Logger::info("Factory reset completed successfully");
-            request->send(200, "text/html", R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Factory Reset Complete</title>
-    <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-    <div class="container">
-        <h2>Factory Reset Complete!</h2>
-        <p>The device will now reboot and return to initial setup mode.</p>
-        <p>Please wait...</p>
-    </div>
-</body>
-</html>
-)rawliteral");
-            delay(2000);
+            request->send(200, "text/html", getSuccessPage("Factory Reset", "Settings have been reset to defaults. The device will now restart."));
+            delay(1000);
             ESP.restart();
         } else {
-            Logger::error("Factory reset failed!");
-            request->send(500, "text/html", R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Failed</title>
-    <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-    <div class="container">
-        <h2>Factory Reset Failed!</h2>
-        <p>There was an error during the reset process.</p>
-        <p>Please try again or contact support if the problem persists.</p>
-        <a href="/settings/device" class="back-home">← Back to Device Settings</a>
-    </div>
-</body>
-</html>
-)rawliteral");
+            request->send(500, "text/html", getErrorPage("Factory Reset Failed", "There was an error during the reset process. Please try again."));
         }
     });
 
-    // --- WiFi Settings Page ---
-    _server.on("/settings/wifi", HTTP_GET, [&](AsyncWebServerRequest *request){
+    // --- WiFi Setup Page ---
+    server.on("/settings/wifi", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Config config;
         configManager.load(config);
+        
         String html = getHtmlHead("WiFi Setup");
         html += settingsNav("wifi");
         html += R"rawliteral(
-  <div class="container">
+  <div class="container">)rawliteral";
+        html += wifiWarning();
+        html += R"rawliteral(
     <h2>WiFi Setup</h2>
     <form method="POST" action="/settings/wifi">
       <label for="ssid">WiFi SSID</label>
-      <input name="ssid" id="ssid" type="text" value=")rawliteral" + config.wifiSsid + R"rawliteral(" required autocomplete="off">
-      <div id="wifi-list-container">
-        <button type="button" onclick="scanWifi()" class="scan-btn">Scan for WiFi Networks</button>
-        <ul id="wifi-list" class="wifi-list"></ul>
-      </div>
+      <input name="ssid" id="ssid" type="text" value=")rawliteral";
+        html += String(config.wifiSSID);
+        html += R"rawliteral(" required>
       <label for="wifipass">WiFi Password</label>
-      <input name="wifipass" id="wifipass" type="password" value=")rawliteral" + config.wifiPassword + R"rawliteral(" required>
-      <input type="submit" value="Save & Reboot">
+      <input name="wifipass" id="wifipass" type="password" value=")rawliteral";
+        html += String(config.wifiPassword);
+        html += R"rawliteral(">
+      <input type="submit" value="Save">
     </form>
     <a href="/" class="back-home">← Back to Home</a>
-  </div>
-  <script>
-    function scanWifi() {
-      const list = document.getElementById('wifi-list');
-      list.innerHTML = '<li>Scanning...</li>';
-      fetch('/scan/wifi').then(r => r.json()).then(data => {
-        if (!data || !data.length) {
-          list.innerHTML = '<li>No networks found</li>';
-          return;
-        }
-        list.innerHTML = '';
-        data.forEach(net => {
-          const li = document.createElement('li');
-          li.className = 'wifi-item';
-          li.innerHTML = `<span class='wifi-name'>${net.ssid}</span> <span class='wifi-strength'>${net.rssi} dBm</span>`;
-          li.onclick = () => {
-            document.getElementById('ssid').value = net.ssid;
-          };
-          list.appendChild(li);
-        });
-      }).catch(() => {
-        list.innerHTML = '<li>Error scanning for networks</li>';
-      });
-    }
-  </script>
-  <style>
-    .wifi-list { list-style: none; padding: 0; margin: 1em 0; }
-    .wifi-item { padding: 8px 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
-    .wifi-item:hover { background: #e3f2fd; }
-    .wifi-name { font-weight: 500; color: #1976d2; }
-    .wifi-strength { font-size: 0.95em; color: #888; }
-    .scan-btn { background: #2196f3; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 1em; font-weight: 500; cursor: pointer; margin-bottom: 8px; transition: background 0.2s; }
-    .scan-btn:hover { background: #1976d2; }
-  </style>
-)rawliteral";
+  </div>)rawliteral";
         html += getHtmlFooter();
         request->send(200, "text/html", html);
     });
 
+    server.on("/settings/wifi", HTTP_POST, [&](AsyncWebServerRequest *request) {
+        handleSettingsUpdate(request, "WiFi", [&](Config& config) {
+            strncpy(config.wifiSSID, request->getParam("ssid", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+            strncpy(config.wifiPassword, request->getParam("wifipass", true)->value().c_str(), MAX_STRING_LENGTH - 1);
+        }, true);
+    });
+
     // WiFi scan endpoint
-    _server.on("/scan/wifi", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/scan/wifi", HTTP_GET, [](AsyncWebServerRequest *request) {
         int n = WiFi.scanNetworks();
         String json = "[";
         for (int i = 0; i < n; ++i) {
@@ -694,7 +681,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
     });
 
     // --- Logs Page ---
-    _server.on("/logs", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    server.on("/logs", HTTP_GET, [&](AsyncWebServerRequest *request) {
         String html = getHtmlHead("Device Logs");
         html += settingsNav("logs");
         html += "<div class='container'>";
@@ -713,18 +700,18 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
     });
 
     // Serve the log file for download or viewing
-    _server.on("/logs/file", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/logs/file", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(LittleFS, "/logs.txt", "text/plain");
     });
 
     // Add clear logs endpoint
-    _server.on("/logs/clear", HTTP_POST, [&](AsyncWebServerRequest *request) {
+    server.on("/logs/clear", HTTP_POST, [&](AsyncWebServerRequest *request) {
         Logger::clearLogs();
         request->send(200);
     });
 
     // --- Help Page ---
-    _server.on("/help", HTTP_GET, [&](AsyncWebServerRequest *request) {
+    server.on("/help", HTTP_GET, [&](AsyncWebServerRequest *request) {
         String html = getHtmlHead("Connection Help");
         html += settingsNav("help");
         html += R"rawliteral(
@@ -839,5 +826,43 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
 void CustomWebServer::handleClient()
 {
     // Not needed for AsyncWebServer, but present for interface compatibility
+}
+
+String getSuccessPage(const String& title, const String& message) {
+    String html = getHtmlHead(title);
+    html += R"rawliteral(
+  <div class="container">
+    <div class="success-message">
+      <h2>)rawliteral";
+    html += title;
+    html += R"rawliteral(</h2>
+      <p>)rawliteral";
+    html += message;
+    html += R"rawliteral(</p>
+      <a href="/" class="back-home">← Back to Home</a>
+    </div>
+  </div>
+)rawliteral";
+    html += getHtmlFooter();
+    return html;
+}
+
+String getErrorPage(const String& title, const String& message) {
+    String html = getHtmlHead(title);
+    html += R"rawliteral(
+  <div class="container">
+    <div class="error-message">
+      <h2>)rawliteral";
+    html += title;
+    html += R"rawliteral(</h2>
+      <p>)rawliteral";
+    html += message;
+    html += R"rawliteral(</p>
+      <a href="/" class="back-home">← Back to Home</a>
+    </div>
+  </div>
+)rawliteral";
+    html += getHtmlFooter();
+    return html;
 }
 

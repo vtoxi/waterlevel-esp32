@@ -1,34 +1,41 @@
 #include <Arduino.h>
-#include "WaterLevelSensor.h"
-#include "ConfigManager.h"
-#include "WiFiManager.h"
-#include "MQTTClient.h"
-#include "CustomWebServer.h"
-#include "DisplayManager.h"
-#include "Logger.h"
+#include <ESP8266WiFi.h>
+#include <LittleFS.h>
+#include <list>
+#include <deque>
+#include <memory>
+#include "../lib/WaterLevelSensor/WaterLevelSensor.h"
+#include "../lib/ConfigManager/ConfigManager.h"
+#include "../lib/WiFiManager/WiFiManager.h"
+#include "../lib/MQTTClient/MQTTClient.h"
+#include "../lib/CustomWebServer/CustomWebServer.h"
+#include "../lib/Logger/Logger.h"
+#include "../lib/Config/Config.h"
+#include <MD_MAX72XX.h>
+#include <SPI.h>
 
-// Pin definitions (adjust as needed)
-constexpr int TRIGGER_PIN = 5;
-constexpr int ECHO_PIN = 18;
+// Pin definitions for Wemos D1 Mini Pro
+constexpr int TRIGGER_PIN = D4;  // GPIO5
+constexpr int ECHO_PIN = D8;     // GPIO4
 constexpr float TANK_HEIGHT_CM = 100.0f; // Set your tank height in cm
 
-WaterLevelSensor sensor(TRIGGER_PIN, ECHO_PIN, TANK_HEIGHT_CM);
+// Define pins for MAX7219 7-segment display
+#define CLK_PIN  D5  // GPIO14
+#define CS_PIN   D6  // GPIO15
+#define DATA_PIN D7  // GPIO13
+
+#define LED_PIN D4  // Built-in LED on Wemos D1 Mini Pro
+
+// Global variables
+WaterLevelSensor sensor;
 ConfigManager configManager;
 WiFiManager wifiManager;
-MQTTClient mqttClient;
+MQTTClient* mqttClient = nullptr;
 CustomWebServer webServer;
-
 Config config;
 
-// Define your pins
-#define DATA_PIN 23
-#define CLK_PIN 18
-#define CS_PIN 5
-#define NUM_MATRICES 4
-
-DisplayManager display(DATA_PIN, CLK_PIN, CS_PIN, NUM_MATRICES);
-
-#define LED_PIN 2 // Onboard LED for most ESP32 dev boards
+// Create MAX7219 object
+MD_MAX72XX display = MD_MAX72XX(MD_MAX72XX::FC16_HW, CS_PIN, 1);
 
 enum LedState { LED_OFF, LED_ON, LED_BLINK_SLOW, LED_BLINK_FAST };
 LedState ledState = LED_OFF;
@@ -37,6 +44,13 @@ const unsigned long BLINK_INTERVAL_SLOW = 500;  // ms
 const unsigned long BLINK_INTERVAL_FAST = 150;  // ms
 bool ledOn = false;
 
+// Function declarations
+void setLedState(LedState state);
+void handleLed();
+String getUniqueAPSSID(const String& prefix = "WL-");
+void logInfo(const String& msg);
+
+// Function implementations
 void setLedState(LedState state) {
     ledState = state;
     if (state == LED_ON) {
@@ -44,7 +58,6 @@ void setLedState(LedState state) {
     } else if (state == LED_OFF) {
         digitalWrite(LED_PIN, LOW);
     }
-    // For blinking, let loop() handle toggling
 }
 
 void handleLed() {
@@ -62,11 +75,10 @@ void handleLed() {
             lastLedToggle = now;
         }
     }
-    // LED_ON and LED_OFF are handled immediately in setLedState
 }
 
-String getUniqueAPSSID(const String& prefix = "WL-") {
-    uint64_t chipid = ESP.getEfuseMac();
+String getUniqueAPSSID(const String& prefix) {
+    uint32_t chipid = ESP.getChipId();
     // Use last 2 bytes (4 hex digits) for brevity and uniqueness
     char uniquePart[5];
     snprintf(uniquePart, sizeof(uniquePart), "%04X", (uint16_t)(chipid & 0xFFFF));
@@ -79,70 +91,87 @@ void logInfo(const String& msg) {
 
 void setup() {
     Serial.begin(115200);
-    Logger::begin();
-    delay(100);
+    Serial.println("\nStarting Water Level Monitor...");
 
-    pinMode(LED_PIN, OUTPUT);
-    setLedState(LED_BLINK_SLOW); // Start with slow blink (connecting)
-
-    configManager.load(config);
-
-    logInfo("Attempting WiFi connection...");
-    if (!wifiManager.connect(config)) {
-        setLedState(LED_BLINK_FAST); // AP mode, blink fast
-        String apSsid = getUniqueAPSSID();
-        logInfo("WiFi connect failed. Starting AP: " + apSsid);
-        wifiManager.startAP(apSsid.c_str());
-        webServer.begin(configManager, sensor);
-        logInfo("AP mode started. Awaiting configuration.");
-        while (true) {
-            handleLed();
-            delay(10);
-        }
+    // Initialize the file system
+    if (!LittleFS.begin()) {
+        Serial.println("Failed to mount file system");
+        return;
     }
 
-    setLedState(LED_ON); // Connected!
-    logInfo("WiFi connected!");
-    logInfo("Local IP: " + WiFi.localIP().toString());
+    // Load configuration
+    if (!configManager.loadConfig(config)) {
+        Serial.println("Failed to load config, using defaults");
+        configManager.resetConfig(config);
+        configManager.saveConfig(config);
+    }
 
-    // Start web server (for status/info)
+    // Initialize WiFi
+    wifiManager.begin(config);
+
+    // Initialize web server
     webServer.begin(configManager, sensor);
 
-    // Optionally, redirect to /connected page on first boot after config
-    // (You can add logic to detect first boot after config if desired)
+    // Initialize MQTT if configured
+    if (strlen(config.mqttServer) > 0) {
+        mqttClient = new MQTTClient(config);
+        mqttClient->begin();
+    }
 
-    // Connect to MQTT
-    mqttClient.connect(config);
+    // Initialize sensor
+    sensor.begin();
 
+    // Initialize MAX7219
     display.begin();
-    display.displayText("Hello!", true); // Scroll "Hello!"
+    display.control(MD_MAX72XX::INTENSITY, 8); // Set brightness (0-15)
+    display.clear();
+    
+    // Display "HELLO" on startup
+    const char* hello = "HELLO";
+    for (size_t i = 0; i < strlen(hello); i++) {
+        display.setChar(7-i, hello[i]);
+    }
+    delay(1000);
+    display.clear();
 }
-
-unsigned long lastPublish = 0;
-const unsigned long publishInterval = 10000; // 10 seconds
 
 void loop() {
     handleLed();
-    // MQTT loop
-    mqttClient.loop();
+    
+    // Handle WiFi connection
+    wifiManager.loop();
 
-    // Periodically publish water level
-    unsigned long now = millis();
-    if (now - lastPublish > publishInterval) {
-        lastPublish = now;
+    // Handle MQTT connection and messages
+    if (mqttClient) {
+        mqttClient->loop();
+    }
+
+    // Update sensor readings
+    sensor.loop();
+
+    // Publish sensor data to MQTT if connected
+    static unsigned long lastPublish = 0;
+    if (mqttClient && millis() - lastPublish > 5000) {
+        char payload[32];
+        snprintf(payload, sizeof(payload), "%.1f", sensor.getWaterLevelPercent());
+        mqttClient->publish(config.mqttTopic, payload);
+        lastPublish = millis();
+    }
+
+    // Update display
+    static unsigned long lastDisplayUpdate = 0;
+    if (millis() - lastDisplayUpdate > 10000) {
+        lastDisplayUpdate = millis();
         float level = sensor.getWaterLevelPercent();
-        String payload = String(level, 1);
-        if (mqttClient.isConnected()) {
-            mqttClient.publish(config.mqttTopic, payload);
-            Serial.println("Published water level: " + payload + "%");
-        } else {
-            mqttClient.connect(config); // Try to reconnect if needed
+        char displayText[9];
+        snprintf(displayText, sizeof(displayText), "%.1f%%", level);
+        display.clear();
+        
+        // Display the water level
+        for (size_t i = 0; i < strlen(displayText); i++) {
+            display.setChar(7-i, displayText[i]);
         }
     }
 
-    // No need to call webServer.handleClient() (AsyncWebServer is event-driven)
-
-    // Update display as needed
-    display.displayLevel(sensor.getWaterLevelPercent());
-    display.update(); // Must be called frequently for animation
+    delay(10);
 }
