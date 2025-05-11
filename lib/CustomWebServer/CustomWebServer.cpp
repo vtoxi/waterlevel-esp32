@@ -146,7 +146,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
             delay(1000);
             ESP.restart();
         } else {
-            request->send(200, "text/html", "<h2>" + settingName + " Settings Saved!</h2><a href='/' class='back-home'>← Back to Home</a>");
+            request->send(200, "text/html", "<h2>" + settingName + " Settings Saved!</h2>");
         }
     };
 
@@ -165,25 +165,35 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/dashboard.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Device Home");
         header.replace("{{TITLE}}", "Device Home");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
         float percent = sensor.getWaterLevelPercent();
         float distance = sensor.readDistanceCm();
         float tankDepth = config.tankDepth > 0 ? config.tankDepth : 100.0f;
-        String levelStr;
-        if (config.outputUnit == "cm") {
-            float levelCm = tankDepth - distance;
-            if (levelCm < 0) levelCm = 0;
-            levelStr = String(levelCm, 1) + " cm";
-        } else if (config.outputUnit == "in") {
-            float levelIn = (tankDepth - distance) / 2.54f;
-            if (levelIn < 0) levelIn = 0;
-            levelStr = String(levelIn, 1) + " in";
+        bool sensorError = (distance < 0.01f);
+        String levelStr, tankIconClass;
+        if (sensorError) {
+            levelStr = "ERROR";
+            tankIconClass = "tank-error";
+            distance = 0.0f;
         } else {
-            levelStr = String(percent, 1) + " %";
+            if (config.outputUnit == "cm") {
+                float levelCm = tankDepth - distance;
+                if (levelCm < 0) levelCm = 0;
+                levelStr = String(levelCm, 1) + " cm";
+            } else if (config.outputUnit == "in") {
+                float levelIn = (tankDepth - distance) / 2.54f;
+                if (levelIn < 0) levelIn = 0;
+                levelStr = String(levelIn, 1) + " in";
+            } else {
+                levelStr = String(percent, 1) + " %";
+            }
+            tankIconClass = "";
         }
         html.replace("{{LEVEL_STR}}", levelStr);
+        html.replace("{{TANK_ICON_CLASS}}", tankIconClass);
         html.replace("{{OUTPUT_UNIT}}", config.outputUnit);
         html.replace("{{TANK_DEPTH}}", String(tankDepth));
         html.replace("{{DISTANCE}}", String(distance));
@@ -197,6 +207,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_mqtt.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "MQTT Setup");
         header.replace("{{TITLE}}", "MQTT Setup");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -226,6 +237,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_tank.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Tank Setup");
         header.replace("{{TITLE}}", "Tank Setup");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -260,6 +272,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/connected.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Connected");
         header.replace("{{TITLE}}", "Connected");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -273,6 +286,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_sensor.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Sensor Calibration");
         header.replace("{{TITLE}}", "Sensor Calibration");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -299,6 +313,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_display.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Display Settings");
         header.replace("{{TITLE}}", "Display Settings");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -333,6 +348,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_network.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Network Settings");
         header.replace("{{TITLE}}", "Network Settings");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -359,6 +375,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_alerts.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Alert Settings");
         header.replace("{{TITLE}}", "Alert Settings");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -385,6 +402,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_device.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Device Info / Reset");
         header.replace("{{TITLE}}", "Device Info / Reset");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -437,6 +455,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
             String html = loadTemplateFile("/reset_success.html");
             String header = loadTemplateFile("/header.html");
             String footer = loadTemplateFile("/footer.html");
+            html.replace("{{TITLE}}", "Factory Reset Complete");
             header.replace("{{TITLE}}", "Factory Reset Complete");
             html.replace("{{HEADER}}", header);
             html.replace("{{FOOTER}}", footer);
@@ -448,6 +467,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
             String html = loadTemplateFile("/reset_failed.html");
             String header = loadTemplateFile("/header.html");
             String footer = loadTemplateFile("/footer.html");
+            html.replace("{{TITLE}}", "Reset Failed");
             header.replace("{{TITLE}}", "Reset Failed");
             html.replace("{{HEADER}}", header);
             html.replace("{{FOOTER}}", footer);
@@ -462,6 +482,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/settings_wifi.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "WiFi Setup");
         header.replace("{{TITLE}}", "WiFi Setup");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -522,6 +543,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/logs.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Device Logs");
         header.replace("{{TITLE}}", "Device Logs");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -544,6 +566,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/help.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "Connection Help");
         header.replace("{{TITLE}}", "Connection Help");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
@@ -570,6 +593,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String html = loadTemplateFile("/404.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
+        html.replace("{{TITLE}}", "404 - Page Not Found");
         header.replace("{{TITLE}}", "404 - Page Not Found");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);

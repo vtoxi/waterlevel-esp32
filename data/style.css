@@ -560,4 +560,23 @@ input[type="submit"]:hover, button:hover {
   .widget-icon {
     font-size: 2em;
   }
+}
+.tank-visual{
+  text-align: center;
+}
+
+.tank-error #water-fill, .tank-error #level-text {
+  fill: #f44336 !important;
+  stroke: #f44336 !important;
+}
+.tank-error #level-text {
+  fill: #f44336 !important;
+}
+
+.tank-error #water-fill {
+  fill: #f44336 !important;
+}
+
+.tank-error #level-text {
+  fill: #f44336 !important;
 } 
