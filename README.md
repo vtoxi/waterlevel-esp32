@@ -17,6 +17,18 @@ A smart water level monitoring system for ESP32 with a modern web dashboard, rea
 
 ---
 
+## Recent Improvements
+- **Persistent configuration:** All settings (WiFi, MQTT, tank, sensor, display, network, alerts, device, etc.) are now saved to non-volatile storage and survive reboots.
+- **Modular web UI:** All HTML, CSS, and JS are now served from LittleFS using templates, with consistent headers, footers, and navigation across all pages.
+- **Live AJAX settings:** All settings forms (WiFi, MQTT, Tank, Sensor, Display, Network, Alerts, Device) use AJAX for live updates and inline feedback, without page reloads.
+- **Display enhancements:** DisplayManager supports runtime selection of MAX7219 module type, brightness slider, and scrolling toggle. Display logic auto-scrolls long values and shows error states.
+- **Improved tank setup:** Tank unit (cm/in) is remembered and values are converted accordingly. SVG tank on dashboard shows live value and error state if sensor is disconnected.
+- **Robust logging:** Detailed logs for WiFi, sensor, MQTT, display, and more. Logs can be shown on the MAX7219 display as scrolling text (user-toggleable).
+- **Bug and linter fixes:** Fixed multiple definition errors, string concatenation, Unicode/emoji issues, and modularized code for maintainability.
+- **404 and error pages:** Custom not found and error pages with full HTML structure and navigation.
+
+---
+
 ## Screenshots
 
 | Dashboard | Logs | Help & Diagram |
