@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+{{HEADER}}
+<div class="container">
+  <h2>Display Settings</h2>
+  <form id="displayForm">
+    <label for="brightness">Brightness (<span id='brightness-value'>{{BRIGHTNESS}}</span>)</label>
+    <input name="brightness" id="brightness" type="range" min="0" max="15" value="{{BRIGHTNESS}}">
+    <label for="mode">Display Mode</label>
+    <select name="mode" id="mode">
+      <option value="level" {{LEVEL_SELECTED}}>Water Level</option>
+      <option value="percent" {{PERCENT_SELECTED}}>Percent</option>
+      <option value="distance" {{DISTANCE_SELECTED}}>Distance</option>
+      <option value="text" {{TEXT_SELECTED}}>Scrolling Text</option>
+    </select>
+    <div style="margin: 10px 0 16px 0;">
+      <input type="checkbox" name="scroll" id="scroll" {{SCROLL_CHECKED}}>
+      <label for="scroll" style="display:inline; margin-left:6px;">Enable Scrolling</label>
+    </div>
+    <label for="hardwareType">Display Hardware Type</label>
+    <select name="hardwareType" id="hardwareType">
+      <option value="FC16_HW" {{FC16_SELECTED}}>FC16_HW (default)</option>
+      <option value="GENERIC_HW" {{GENERIC_SELECTED}}>GENERIC_HW</option>
+      <option value="PAROLA_HW" {{PAROLA_SELECTED}}>PAROLA_HW</option>
+      <option value="ICSTATION_HW" {{ICSTATION_SELECTED}}>ICSTATION_HW</option>
+    </select>
+    <input type="submit" value="Save">
+  </form>
+  <div id="displayMsg"></div>
+  <a href="/" class="back-home">← Back to Home</a>
+</div>
+<script src="/script.js"></script>
+{{FOOTER}}
+</body>
+</html> 

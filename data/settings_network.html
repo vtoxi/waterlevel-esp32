@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+{{HEADER}}
+<div class="container">
+  <h2>Network Settings</h2>
+  <form id="networkForm">
+    <label for="staticip">Static IP</label>
+    <input name="staticip" id="staticip" type="text" value="{{STATIC_IP}}" placeholder="192.168.1.100">
+    <label for="gateway">Gateway</label>
+    <input name="gateway" id="gateway" type="text" value="{{GATEWAY}}" placeholder="192.168.1.1">
+    <label for="subnet">Subnet Mask</label>
+    <input name="subnet" id="subnet" type="text" value="{{SUBNET}}" placeholder="255.255.255.0">
+    <label for="hostname">Hostname</label>
+    <input name="hostname" id="hostname" type="text" value="{{HOSTNAME}}" placeholder="waterlevel-01">
+    <input type="submit" value="Save & Reboot">
+  </form>
+  <div id="networkMsg"></div>
+  <a href="/" class="back-home">← Back to Home</a>
+</div>
+<script src="/script.js"></script>
+{{FOOTER}}
+</body>
+</html> 

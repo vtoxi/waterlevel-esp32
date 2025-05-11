@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+{{HEADER}}
+<div class="container">
+  <h2>Device Info / Reset</h2>
+  <form id="deviceForm">
+    <label for="devicename">Device Name</label>
+    <input name="devicename" id="devicename" type="text" value="{{DEVICE_NAME}}" placeholder="waterlevel-01">
+    <label for="ota">Enable OTA Update</label>
+    <select name="ota" id="ota">
+      <option value="on" {{OTA_ON_SELECTED}}>On</option>
+      <option value="off" {{OTA_OFF_SELECTED}}>Off</option>
+    </select>
+    <input type="submit" value="Save">
+  </form>
+  <form id="resetForm" method="POST" action="/settings/device/reset" onsubmit="return confirm('Are you sure you want to perform a factory reset? This will erase all settings and cannot be undone.');">
+    <input type="submit" value="Factory Reset" style="background:#f44336;color:#fff;">
+  </form>
+  <div id="deviceMsg"></div>
+  <a href="/" class="back-home">← Back to Home</a>
+</div>
+<script src="/script.js"></script>
+{{FOOTER}}
+</body>
+</html> 

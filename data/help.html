@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+{{HEADER}}
+<div class="container">
+<h2>Connection Guide</h2>
+<div class="help-section">
+    <h3>Connection Diagram</h3>
+    <div class="diagram-container">
+        <object type="image/svg+xml" data="/diagram.svg" style="width:100%;max-width:500px;display:block;margin:0 auto;"></object>
+    </div>
+</div>
+<div class="help-section">
+    <h3>Hardware Components</h3>
+    <ul>
+        <li>ESP32 Development Board</li>
+        <li>JSN-SR04T Ultrasonic Sensor</li>
+        <li>MAX7219 LED Matrix Display</li>
+        <li>Buzzer (optional, for alerts)</li>
+        <li>LED (optional, for alerts)</li>
+    </ul>
+</div>
+<div class="help-section">
+    <h3>Pin Connections</h3>
+    <div class="pin-table">
+        <table>
+            <tr>
+                <th>Component</th>
+                <th>Pin</th>
+                <th>ESP32 Pin</th>
+                <th>Color Code</th>
+            </tr>
+            <tr>
+                <td>JSN-SR04T Trigger</td>
+                <td>TRIG</td>
+                <td>GPIO 5</td>
+                <td><span class="color-dot" style="background: #f44336"></span> Red</td>
+            </tr>
+            <tr>
+                <td>JSN-SR04T Echo</td>
+                <td>ECHO</td>
+                <td>GPIO 18</td>
+                <td><span class="color-dot" style="background: #4caf50"></span> Green</td>
+            </tr>
+            <tr>
+                <td>MAX7219 DIN</td>
+                <td>DIN</td>
+                <td>GPIO 23</td>
+                <td><span class="color-dot" style="background: #ff9800"></span> Orange</td>
+            </tr>
+            <tr>
+                <td>MAX7219 CLK</td>
+                <td>CLK</td>
+                <td>GPIO 19</td>
+                <td><span class="color-dot" style="background: #9c27b0"></span> Purple</td>
+            </tr>
+            <tr>
+                <td>MAX7219 CS</td>
+                <td>CS</td>
+                <td>GPIO 21</td>
+                <td><span class="color-dot" style="background: #e91e63"></span> Pink</td>
+            </tr>
+            <tr>
+                <td>Buzzer</td>
+                <td>+</td>
+                <td>GPIO 22</td>
+                <td><span class="color-dot" style="background: #009688"></span> Teal</td>
+            </tr>
+            <tr>
+                <td>Alert LED</td>
+                <td>+</td>
+                <td>GPIO 2</td>
+                <td><span class="color-dot" style="background: #795548"></span> Brown</td>
+            </tr>
+        </table>
+    </div>
+</div>
+<div class="help-section">
+    <h3>Power Connections</h3>
+    <ul>
+        <li>JSN-SR04T VCC → 5V</li>
+        <li>JSN-SR04T GND → GND</li>
+        <li>MAX7219 VCC → 5V</li>
+        <li>MAX7219 GND → GND</li>
+        <li>Buzzer GND → GND</li>
+        <li>Alert LED GND → GND (with 220Ω resistor)</li>
+    </ul>
+</div>
+<div class="help-section">
+    <h3>Installation Tips</h3>
+    <ul>
+        <li>Mount the ultrasonic sensor at the top of the tank, facing down</li>
+        <li>Ensure the sensor is perpendicular to the water surface</li>
+        <li>Keep the sensor away from tank walls to avoid false readings</li>
+        <li>Use shielded cables for long wire runs to reduce interference</li>
+        <li>Mount the display in a visible location</li>
+    </ul>
+</div>
+<a href="/" class="back-home">← Back to Home</a>
+</div>
+<script src="/script.js"></script>
+{{FOOTER}}
+</body>
+</html> 

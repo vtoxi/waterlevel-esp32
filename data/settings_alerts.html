@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+{{HEADER}}
+<div class="container">
+  <h2>Alert Settings</h2>
+  <form id="alertsForm">
+    <label for="low">Low Level Alert (%)</label>
+    <input name="low" id="low" type="number" min="0" max="100" value="{{ALERT_LOW}}">
+    <label for="high">High Level Alert (%)</label>
+    <input name="high" id="high" type="number" min="0" max="100" value="{{ALERT_HIGH}}">
+    <label for="alertmethod">Alert Method</label>
+    <select name="alertmethod" id="alertmethod">
+      <option value="mqtt" {{ALERT_METHOD_MQTT_SELECTED}}>MQTT</option>
+      <option value="buzzer" {{ALERT_METHOD_BUZZER_SELECTED}}>Buzzer</option>
+      <option value="led" {{ALERT_METHOD_LED_SELECTED}}>LED</option>
+    </select>
+    <input type="submit" value="Save">
+  </form>
+  <div id="alertsMsg"></div>
+  <a href="/" class="back-home">← Back to Home</a>
+</div>
+<script src="/script.js"></script>
+{{FOOTER}}
+</body>
+</html> 

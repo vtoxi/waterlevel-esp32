@@ -17,6 +17,7 @@ struct Config {
     int displayBrightness = 8;
     String displayMode = "level";
     String displayHardwareType = "FC16_HW";
+    bool displayScrollEnabled = true;
     String staticIp = "";
     String gateway = "";
     String subnet = "";

@@ -178,53 +178,59 @@ void loop() {
     sensor.setTankHeightCm(config.tankDepth);
     display.setBrightness(config.displayBrightness);
     int intervalMs = (config.sensorReadInterval < 1 ? 1 : config.sensorReadInterval) * 1000;
-    if (now - lastSensorRead >= (unsigned long)intervalMs) {
+    static int lastIntervalMs = 1000;
+    if (intervalMs != lastIntervalMs) {
         lastSensorRead = now;
-        float percent = sensor.getWaterLevelPercent();
-        float distance = sensor.readDistanceCm();
-        float tankDepth = config.tankDepth > 0 ? config.tankDepth : 100.0f;
-        String displayStr;
-        if (distance < 0) {
-            displayStr = "Error";
-        } else if (config.displayMode == "level") {
-            if (config.outputUnit == "cm") {
-                float levelCm = tankDepth - distance;
-                if (levelCm < 0) levelCm = 0;
-                displayStr = String(levelCm, 1) + "cm";
-            } else if (config.outputUnit == "in") {
-                float levelIn = (tankDepth - distance) / 2.54f;
-                if (levelIn < 0) levelIn = 0;
-                displayStr = String(levelIn, 1) + "in";
-            } else {
-                displayStr = String(percent, 1) + "%";
-            }
-        } else if (config.displayMode == "distance") {
-            if (config.outputUnit == "cm") {
-                displayStr = String(distance, 1) + "cm";
-            } else if (config.outputUnit == "in") {
-                displayStr = String(distance/2.54f, 1) + "in";
-            } else {
-                displayStr = String(distance, 1) + "%";
-            }
-        } else if (config.displayMode == "percent") {
-            displayStr = String(percent, 1) + "%";
-        } else if (config.displayMode == "text") {
-            displayStr = config.deviceName.length() ? config.deviceName : "WaterLevel";
+        lastIntervalMs = intervalMs;
+    }
+    float percent = sensor.getWaterLevelPercent();
+    float distance = sensor.readDistanceCm();
+    float tankDepth = config.tankDepth > 0 ? config.tankDepth : 100.0f;
+    String displayStr;
+    if (distance < 0) {
+        displayStr = "Error";
+    } else if (config.displayMode == "level") {
+        if (config.outputUnit == "cm") {
+            float levelCm = tankDepth - distance;
+            if (levelCm < 0) levelCm = 0;
+            displayStr = String(levelCm, 1) + "cm";
+        } else if (config.outputUnit == "in") {
+            float levelIn = (tankDepth - distance) / 2.54f;
+            if (levelIn < 0) levelIn = 0;
+            displayStr = String(levelIn, 1) + "in";
         } else {
             displayStr = String(percent, 1) + "%";
         }
-        // Debug print for display logic
-        Serial.printf("[DEBUG] tankDepth: %.1f, distance: %.1f, levelCm: %.1f, levelIn: %.1f, displayStr: %s\n",
-            tankDepth, distance, tankDepth - distance, (tankDepth - distance) / 2.54f, displayStr.c_str());
-        // Only scroll for text mode, or if not in 'level' mode and value is long
-        bool scroll = (config.displayMode == "text") || (config.displayMode != "level" && displayStr.length() > 5);
-        static String lastDisplayStr;
-        static bool lastScroll = false;
-        if (displayStr != lastDisplayStr || scroll != lastScroll) {
-            display.displayText(displayStr.c_str(), scroll);
-            lastDisplayStr = displayStr;
-            lastScroll = scroll;
+    } else if (config.displayMode == "distance") {
+        if (config.outputUnit == "cm") {
+            displayStr = String(distance, 1) + "cm";
+        } else if (config.outputUnit == "in") {
+            displayStr = String(distance/2.54f, 1) + "in";
+        } else {
+            displayStr = String(distance, 1) + "%";
         }
+    } else if (config.displayMode == "percent") {
+        displayStr = String(percent, 1) + "%";
+    } else if (config.displayMode == "text") {
+        displayStr = config.deviceName.length() ? config.deviceName : "WaterLevel";
+    } else {
+        displayStr = String(percent, 1) + "%";
+    }
+    // Debug print for display logic
+    Serial.printf("[DEBUG] tankDepth: %.1f, distance: %.1f, levelCm: %.1f, levelIn: %.1f, displayStr: %s\n",
+        tankDepth, distance, tankDepth - distance, (tankDepth - distance) / 2.54f, displayStr.c_str());
+    // Only scroll if enabled in config
+    bool scroll = config.displayScrollEnabled;
+    static String lastDisplayStr;
+    static bool lastScroll = false;
+    if (config.displayScrollEnabled != lastScroll) {
+        lastDisplayStr = ""; // Force update
+        lastScroll = config.displayScrollEnabled;
+    }
+    if (displayStr != lastDisplayStr || scroll != lastScroll) {
+        display.displayText(displayStr.c_str(), scroll);
+        lastDisplayStr = displayStr;
+        lastScroll = scroll;
     }
     display.update();
 

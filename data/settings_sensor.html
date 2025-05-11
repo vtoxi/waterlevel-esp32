@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+{{HEADER}}
+<div class="container">
+  <h2>Sensor Calibration</h2>
+  <form id="sensorForm">
+    <label for="offset">Sensor Offset (cm)</label>
+    <input name="offset" id="offset" type="number" step="0.1" value="{{SENSOR_OFFSET}}" required>
+    <label for="full">Full Distance (cm)</label>
+    <input name="full" id="full" type="number" step="0.1" value="{{SENSOR_FULL}}" required>
+    <label for="sensorReadInterval">Reading Interval (seconds)</label>
+    <input name="sensorReadInterval" id="sensorReadInterval" type="number" min="1" value="{{SENSOR_READ_INTERVAL}}" required>
+    <input type="submit" value="Save">
+  </form>
+  <div id="sensorMsg"></div>
+  <a href="/" class="back-home">← Back to Home</a>
+</div>
+<script src="/script.js"></script>
+{{FOOTER}}
+</body>
+</html> 

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+{{HEADER}}
+<div class='container'>
+  <h1>Device Logs</h1>
+  <div class='logs-controls'>
+    <button onclick='toggleAutoScroll()' id='autoScrollBtn'>Auto-scroll: ON</button>
+    <button onclick='clearLogs()'>Clear Logs</button>
+    <a href='/logs/file' class='download-logs-btn' download>Download Logs</a>
+    <button onclick='viewFullLogFile()' class='view-logs-btn'>View Full Log File</button>
+  </div>
+  <div id='logs' class='logs-container'></div>
+  <pre id='full-log-file' class='full-log-file' style='display:none;'></pre>
+</div>
+<script src="/script.js"></script>
+{{FOOTER}}
+</body>
+</html> 

@@ -23,6 +23,7 @@ bool ConfigManager::load(Config& config) const {
     config.displayBrightness = prefs.getInt("displayBrightness", 8);
     config.displayMode = prefs.getString("displayMode", "level");
     config.displayHardwareType = prefs.getString("displayHardwareType", "FC16_HW");
+    config.displayScrollEnabled = prefs.getBool("displayScrollEnabled", true);
     config.staticIp = prefs.getString("staticIp", "");
     config.gateway = prefs.getString("gateway", "");
     config.subnet = prefs.getString("subnet", "");
@@ -57,6 +58,7 @@ bool ConfigManager::save(const Config& config) const {
     prefs.putInt   ("displayBrightness", config.displayBrightness);
     prefs.putString("displayMode", config.displayMode);
     prefs.putString("displayHardwareType", config.displayHardwareType);
+    prefs.putBool("displayScrollEnabled", config.displayScrollEnabled);
     prefs.putString("staticIp", config.staticIp);
     prefs.putString("gateway", config.gateway);
     prefs.putString("subnet", config.subnet);
