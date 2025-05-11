@@ -149,67 +149,84 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
     // --- Dashboard with Animated Water Tank ---
     _server.on("/", HTTP_GET, [&](AsyncWebServerRequest *request) {
         Logger::info("Home page accessed from IP: " + request->client()->remoteIP().toString());
+        Config config;
+        configManager.load(config);
         String html = getHtmlHead("Device Home");
         html += settingsNav("home");
+        float percent = sensor.getWaterLevelPercent();
+        float distance = sensor.readDistanceCm();
+        float tankDepth = config.tankDepth > 0 ? config.tankDepth : 100.0f;
+        String levelStr;
+        if (config.outputUnit == "cm") {
+            float levelCm = tankDepth - distance;
+            if (levelCm < 0) levelCm = 0;
+            levelStr = String(levelCm, 1) + " cm";
+        } else if (config.outputUnit == "in") {
+            float levelIn = (tankDepth - distance) / 2.54f;
+            if (levelIn < 0) levelIn = 0;
+            levelStr = String(levelIn, 1) + " in";
+        } else {
+            levelStr = String(percent, 1) + " %";
+        }
         html += R"rawliteral(
-  <div class="container">
+  <div class='container'>
     <h2>Device Dashboard</h2>
-    <div class="water-tank-section">
+    <div class='water-tank-section'>
       <h3>Real-Time Water Level</h3>
-      <div class="tank-visual">
-        <svg id="tank-svg" viewBox="0 0 120 240" width="120" height="240">
-          <rect x="20" y="20" width="80" height="200" rx="30" fill="#e0e0e0" stroke="#2196f3" stroke-width="4"/>
-          <rect id="water-fill" x="20" y="220" width="80" height="0" rx="30" fill="#21cbf3"/>
-          <text id="level-text" x="60" y="130" text-anchor="middle" font-size="32" fill="#1976d2" font-weight="bold">--%</text>
+      <div class='tank-visual'>
+        <svg id='tank-svg' viewBox='0 0 120 240' width='120' height='240'>
+          <rect x='20' y='20' width='80' height='200' rx='30' fill='#e0e0e0' stroke='#2196f3' stroke-width='4'/>
+          <rect id='water-fill' x='20' y='220' width='80' height='0' rx='30' fill='#21cbf3'/>
+          <text id='level-text' x='60' y='130' text-anchor='middle' font-size='24' fill='#1976d2' font-weight='bold' textLength='80' lengthAdjust='spacingAndGlyphs'>LEVEL_PLACEHOLDER</text>
         </svg>
       </div>
     </div>
-    <div class="dashboard-grid">
-      <a href="/settings/wifi" class="dashboard-widget">
-        <span class="widget-icon">🔗</span>
-        <span class="widget-label">WiFi</span>
+    <div class='dashboard-grid'>
+      <a href='/settings/wifi' class='dashboard-widget'>
+        <span class='widget-icon'>&#128279;</span>
+        <span class='widget-label'>WiFi</span>
       </a>
-      <a href="/settings/mqtt" class="dashboard-widget">
-        <span class="widget-icon">☁️</span>
-        <span class="widget-label">MQTT</span>
+      <a href='/settings/mqtt' class='dashboard-widget'>
+        <span class='widget-icon'>&#9729;</span>
+        <span class='widget-label'>MQTT</span>
       </a>
-      <a href="/settings/tank" class="dashboard-widget">
-        <span class="widget-icon">🛢️</span>
-        <span class="widget-label">Tank</span>
+      <a href='/settings/tank' class='dashboard-widget'>
+        <span class='widget-icon'>&#128738;</span>
+        <span class='widget-label'>Tank</span>
       </a>
-      <a href="/settings/sensor" class="dashboard-widget">
-        <span class="widget-icon">📡</span>
-        <span class="widget-label">Sensor</span>
+      <a href='/settings/sensor' class='dashboard-widget'>
+        <span class='widget-icon'>&#128246;</span>
+        <span class='widget-label'>Sensor</span>
       </a>
-      <a href="/settings/display" class="dashboard-widget">
-        <span class="widget-icon">💡</span>
-        <span class="widget-label">Display</span>
+      <a href='/settings/display' class='dashboard-widget'>
+        <span class='widget-icon'>&#128161;</span>
+        <span class='widget-label'>Display</span>
       </a>
-      <a href="/settings/network" class="dashboard-widget">
-        <span class="widget-icon">🌐</span>
-        <span class="widget-label">Network</span>
+      <a href='/settings/network' class='dashboard-widget'>
+        <span class='widget-icon'>&#127760;</span>
+        <span class='widget-label'>Network</span>
       </a>
-      <a href="/settings/alerts" class="dashboard-widget">
-        <span class="widget-icon">🔔</span>
-        <span class="widget-label">Alerts</span>
+      <a href='/settings/alerts' class='dashboard-widget'>
+        <span class='widget-icon'>&#128276;</span>
+        <span class='widget-label'>Alerts</span>
       </a>
-      <a href="/settings/device" class="dashboard-widget">
-        <span class="widget-icon">⚙️</span>
-        <span class="widget-label">Device</span>
+      <a href='/settings/device' class='dashboard-widget'>
+        <span class='widget-icon'>&#9881;</span>
+        <span class='widget-label'>Device</span>
       </a>
-      <a href="/logs" class="dashboard-widget">
-        <span class="widget-icon">📝</span>
-        <span class="widget-label">Logs</span>
+      <a href='/logs' class='dashboard-widget'>
+        <span class='widget-icon'>&#128221;</span>
+        <span class='widget-label'>Logs</span>
       </a>
-      <a href="/help" class="dashboard-widget">
-        <span class="widget-icon">❓</span>
-        <span class="widget-label">Help</span>
+      <a href='/help' class='dashboard-widget'>
+        <span class='widget-icon'>&#10067;</span>
+        <span class='widget-label'>Help</span>
       </a>
     </div>
   </div>
   <script>
     let currentLevel = 0;
-    function animateTank(target) {
+    function animateTank(target, label) {
       const fill = document.getElementById('water-fill');
       const text = document.getElementById('level-text');
       let displayed = currentLevel;
@@ -219,7 +236,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         let h = Math.max(0, Math.min(200, 2 * displayed));
         fill.setAttribute('y', 220 - h);
         fill.setAttribute('height', h);
-        text.textContent = Math.round(displayed) + '%';
+        if (label !== undefined) text.textContent = label;
         if (displayed !== target) requestAnimationFrame(step);
         else currentLevel = target;
       }
@@ -227,7 +244,25 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
     }
     function pollLevel() {
       fetch('/api/level').then(r => r.json()).then(data => {
-        animateTank(data.level);
+        // Compose label based on unit
+        let unit = 'cm';
+        let configUnit = 'LEVEL_UNIT_PLACEHOLDER';
+        let tankDepth = LEVEL_TANKDEPTH_PLACEHOLDER;
+        let distance = LEVEL_DISTANCE_PLACEHOLDER;
+        let percent = data.level;
+        let label = '';
+        if (configUnit === 'cm') {
+          let levelCm = tankDepth - distance;
+          if (levelCm < 0) levelCm = 0;
+          label = levelCm.toFixed(1) + ' cm';
+        } else if (configUnit === 'in') {
+          let levelIn = (tankDepth - distance) / 2.54;
+          if (levelIn < 0) levelIn = 0;
+          label = levelIn.toFixed(1) + ' in';
+        } else {
+          label = percent.toFixed(1) + ' %';
+        }
+        animateTank(percent, label);
       });
     }
     setInterval(pollLevel, 1200);
@@ -241,29 +276,28 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
       margin-bottom: 32px;
     }
     .tank-visual {
+      width: 100%;
+      max-width: 180px;
       margin: 0 auto;
       background: #f5fafd;
       border-radius: 16px;
       box-shadow: 0 2px 12px rgba(33,150,243,0.08);
       padding: 16px 24px 8px 24px;
-      max-width: 180px;
     }
     #tank-svg {
+      width: 100%;
+      height: auto;
       display: block;
       margin: 0 auto;
     }
   </style>
 )rawliteral";
+        html.replace("LEVEL_PLACEHOLDER", levelStr);
+        html.replace("LEVEL_UNIT_PLACEHOLDER", config.outputUnit);
+        html.replace("LEVEL_TANKDEPTH_PLACEHOLDER", String(tankDepth));
+        html.replace("LEVEL_DISTANCE_PLACEHOLDER", String(distance));
         html += getHtmlFooter();
         request->send(200, "text/html", html);
-    });
-
-    _server.on("/", HTTP_POST, [&](AsyncWebServerRequest *request)
-               {
-        handleSettingsUpdate(request, "WiFi", [&](Config& config) {
-            config.wifiSsid = request->getParam("ssid", true)->value();
-            config.wifiPassword = request->getParam("wifipass", true)->value();
-        }, true);
     });
 
     // --- MQTT Settings Page ---
@@ -323,7 +357,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
     <form method="POST" action="/settings/tank">
       <label for="tankDepth">Tank Depth</label>
       <div class="unit-row">
-        <input name="tankDepth" id="tankDepth" type="number" step="0.1" value=")rawliteral" + String(config.tankDepth, 1) + R"rawliteral(" required>
+        <input name="tankDepth" id="tankDepth" type="number" step="0.1" value=")rawliteral" + String((config.outputUnit == "in" ? config.tankDepth / 2.54f : config.tankDepth), 1) + R"rawliteral(" required>
         <select name="tankDepthUnit" id="tankDepthUnit">
           <option value="cm" )rawliteral" + (config.outputUnit == "cm" ? "selected" : "") + R"rawliteral(>cm</option>
           <option value="in" )rawliteral" + (config.outputUnit == "in" ? "selected" : "") + R"rawliteral(>in</option>
@@ -386,6 +420,8 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
   <input name="offset" id="offset" type="number" step="0.1" value=")rawliteral" + String(config.sensorOffset, 1) + R"rawliteral(" required>
   <label for="full">Full Distance (cm)</label>
   <input name="full" id="full" type="number" step="0.1" value=")rawliteral" + String(config.sensorFull, 1) + R"rawliteral(" required>
+  <label for="sensorReadInterval">Reading Interval (seconds)</label>
+  <input name="sensorReadInterval" id="sensorReadInterval" type="number" min="1" value=")rawliteral" + String(config.sensorReadInterval) + R"rawliteral(" required>
   <input type="submit" value="Save">
 </form>
 <a href="/" class="back-home">← Back to Home</a>
@@ -400,6 +436,8 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         handleSettingsUpdate(request, "Sensor", [&](Config& config) {
             config.sensorOffset = request->getParam("offset", true)->value().toFloat();
             config.sensorFull = request->getParam("full", true)->value().toFloat();
+            int interval = request->getParam("sensorReadInterval", true)->value().toInt();
+            config.sensorReadInterval = interval < 1 ? 1 : interval;
         }, false);
     });
 
@@ -412,19 +450,36 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
 <div class="container">
 <h2>Display Settings</h2>
 <form method="POST" action="/settings/display">
-  <label for="brightness">Brightness (0-15)</label>
-  <input name="brightness" id="brightness" type="number" min="0" max="15" value=")" + String(config.displayBrightness) + R"(" required>
+  <label for="brightness">Brightness (<span id='brightness-value'>BRIGHTNESS_PLACEHOLDER</span>)</label>
+  <input name="brightness" id="brightness" type="range" min="0" max="15" value="BRIGHTNESS_PLACEHOLDER">
   <label for="mode">Display Mode</label>
   <select name="mode" id="mode">
-    <option value="level" )" + (config.displayMode == "level" ? "selected" : "") + R"(">Water Level</option>
-    <option value="percent" )" + (config.displayMode == "percent" ? "selected" : "") + R"(">Percent</option>
-    <option value="text" )" + (config.displayMode == "text" ? "selected" : "") + R"(">Scrolling Text</option>
+    <option value="level" LEVEL_SELECTED>Water Level</option>
+    <option value="percent" PERCENT_SELECTED>Percent</option>
+    <option value="distance" DISTANCE_SELECTED>Distance</option>
+    <option value="text" TEXT_SELECTED>Scrolling Text</option>
+  </select>
+  <label for="hardwareType">Display Hardware Type</label>
+  <select name="hardwareType" id="hardwareType">
+    <option value="FC16_HW" FC16_SELECTED>FC16_HW (default)</option>
+    <option value="GENERIC_HW" GENERIC_SELECTED>GENERIC_HW</option>
+    <option value="PAROLA_HW" PAROLA_SELECTED>PAROLA_HW</option>
+    <option value="ICSTATION_HW" ICSTATION_SELECTED>ICSTATION_HW</option>
   </select>
   <input type="submit" value="Save">
 </form>
 <a href="/" class="back-home">← Back to Home</a>
 </div>
 )rawliteral";
+        html.replace("BRIGHTNESS_PLACEHOLDER", String(config.displayBrightness));
+        html.replace("LEVEL_SELECTED", config.displayMode == "level" ? "selected" : "");
+        html.replace("PERCENT_SELECTED", config.displayMode == "percent" ? "selected" : "");
+        html.replace("DISTANCE_SELECTED", config.displayMode == "distance" ? "selected" : "");
+        html.replace("TEXT_SELECTED", config.displayMode == "text" ? "selected" : "");
+        html.replace("FC16_SELECTED", config.displayHardwareType == "FC16_HW" ? "selected" : "");
+        html.replace("GENERIC_SELECTED", config.displayHardwareType == "GENERIC_HW" ? "selected" : "");
+        html.replace("PAROLA_SELECTED", config.displayHardwareType == "PAROLA_HW" ? "selected" : "");
+        html.replace("ICSTATION_SELECTED", config.displayHardwareType == "ICSTATION_HW" ? "selected" : "");
         html += getHtmlFooter();
         request->send(200, "text/html", html);
     });
@@ -434,6 +489,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         handleSettingsUpdate(request, "Display", [&](Config& config) {
             config.displayBrightness = request->getParam("brightness", true)->value().toInt();
             config.displayMode = request->getParam("mode", true)->value();
+            config.displayHardwareType = request->getParam("hardwareType", true)->value();
         }, false);
     });
 
@@ -630,9 +686,9 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         html += R"rawliteral(
   <div class="container">
     <h2>WiFi Setup</h2>
-    <form method="POST" action="/settings/wifi">
+    <form id="wifiForm">
       <label for="ssid">WiFi SSID</label>
-      <input name="ssid" id="ssid" type="text" value=")rawliteral" + config.wifiSsid + R"rawliteral(" required autocomplete="off">
+      <input name="ssid" id="ssid" type="text" value=")rawliteral" + config.wifiSsid + R"rawliteral(" required>
       <div id="wifi-list-container">
         <button type="button" onclick="scanWifi()" class="scan-btn">Scan for WiFi Networks</button>
         <ul id="wifi-list" class="wifi-list"></ul>
@@ -641,6 +697,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
       <input name="wifipass" id="wifipass" type="password" value=")rawliteral" + config.wifiPassword + R"rawliteral(" required>
       <input type="submit" value="Save & Reboot">
     </form>
+    <div id="wifiMsg"></div>
     <a href="/" class="back-home">← Back to Home</a>
   </div>
   <script>
@@ -666,6 +723,13 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         list.innerHTML = '<li>Error scanning for networks</li>';
       });
     }
+    document.getElementById('wifiForm').onsubmit = function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      fetch('/settings/wifi', { method: 'POST', body: formData })
+        .then(async r => { const msg = await r.text(); document.getElementById('wifiMsg').innerHTML = msg; })
+        .catch(err => { document.getElementById('wifiMsg').innerHTML = '<span style="color:red;">' + err + '</span>'; });
+    };
   </script>
   <style>
     .wifi-list { list-style: none; padding: 0; margin: 1em 0; }
@@ -679,6 +743,41 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
 )rawliteral";
         html += getHtmlFooter();
         request->send(200, "text/html", html);
+    });
+
+    // WiFi POST handler for AJAX
+    _server.on("/settings/wifi", HTTP_POST, [&](AsyncWebServerRequest *request) {
+        String debugMsg;
+        if (!request->hasParam("ssid", true) || !request->hasParam("wifipass", true)) {
+            debugMsg = "[DEBUG] Missing ssid or wifipass in POST";
+            Serial.println(debugMsg);
+            request->send(400, "text/html", "<span style='color:red;'>Missing required WiFi parameters.</span>");
+            return;
+        }
+        Config config;
+        if (!configManager.load(config)) {
+            debugMsg = "[DEBUG] Failed to load config in WiFi POST";
+            Serial.println(debugMsg);
+            request->send(500, "text/html", "<span style='color:red;'>Failed to load configuration.</span>");
+            return;
+        }
+        String ssid = request->getParam("ssid", true)->value();
+        String wifipass = request->getParam("wifipass", true)->value();
+        debugMsg = "[DEBUG] Received ssid: " + ssid + ", wifipass: " + wifipass;
+        Serial.println(debugMsg);
+        config.wifiSsid = ssid;
+        config.wifiPassword = wifipass;
+        if (!configManager.save(config)) {
+            debugMsg = "[DEBUG] Failed to save config in WiFi POST";
+            Serial.println(debugMsg);
+            request->send(500, "text/html", "<span style='color:red;'>Failed to save configuration.</span>");
+            return;
+        }
+        debugMsg = "[DEBUG] WiFi settings saved, rebooting...";
+        Serial.println(debugMsg);
+        request->send(200, "text/html", "<span style='color:green;'>WiFi settings saved! Rebooting...</span>");
+        delay(1000);
+        ESP.restart();
     });
 
     // WiFi scan endpoint
@@ -833,6 +932,21 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
 )rawliteral";
         html += getHtmlFooter();
         request->send(200, "text/html", html);
+    });
+
+    // --- API endpoint for live brightness change ---
+    _server.on("/api/display/brightness", HTTP_POST, [&](AsyncWebServerRequest *request){
+        if (request->hasParam("value", true)) {
+            int value = request->getParam("value", true)->value().toInt();
+            value = std::max(0, std::min(15, value));
+            Config config;
+            configManager.load(config);
+            config.displayBrightness = value;
+            configManager.save(config);
+            request->send(200, "application/json", "{}\n");
+        } else {
+            request->send(400, "application/json", "{\"error\":\"Missing value\"}\n");
+        }
     });
 }
 

@@ -9,6 +9,8 @@ enum class LogLevel {
     ERROR
 };
 
+typedef void (*LogDisplayCallback)(const String&);
+
 class Logger {
 public:
     static void begin();
@@ -19,10 +21,12 @@ public:
     static void error(const String& message);
     static String getLogs();
     static void clearLogs();
+    static void setDisplayCallback(LogDisplayCallback cb);
 
 private:
     static const char* LOG_FILE;
     static const size_t MAX_LOG_SIZE = 1024 * 10; // 10KB
     static void rotateLogs();
     static void writeToFile(const String& message);
+    static LogDisplayCallback _displayCallback;
 };

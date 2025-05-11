@@ -35,3 +35,7 @@ float WaterLevelSensor::measureDistance() const {
     float distance = duration * 0.0343f / 2.0f;
     return distance;
 }
+
+void WaterLevelSensor::setTankHeightCm(float h) {
+    _tankHeightCm = h;
+}

@@ -15,11 +15,17 @@ namespace {
 
 const char* Logger::LOG_FILE = "/logs.txt";
 
+LogDisplayCallback Logger::_displayCallback = nullptr;
+
 void Logger::begin() {
     if (!LittleFS.exists(LOG_FILE)) {
         File file = LittleFS.open(LOG_FILE, "w");
         file.close();
     }
+}
+
+void Logger::setDisplayCallback(LogDisplayCallback cb) {
+    _displayCallback = cb;
 }
 
 void Logger::log(LogLevel level, const String& message) {
@@ -32,6 +38,11 @@ void Logger::log(LogLevel level, const String& message) {
     // Log to file
     String logMessage = String("[") + levelToString(level) + "] " + message;
     writeToFile(logMessage);
+
+    // Log to display (if callback set)
+    if (_displayCallback) {
+        _displayCallback(logMessage);
+    }
 }
 
 void Logger::writeToFile(const String& message) {

@@ -2,9 +2,17 @@
 #include <Arduino.h>
 
 DisplayManager::DisplayManager(uint8_t dataPin, uint8_t clkPin, uint8_t csPin, uint8_t numDevices)
-    : _parola(MD_MAX72XX::FC16_HW, dataPin, clkPin, csPin, numDevices), _numDevices(numDevices) {}
+    : _parola(MD_MAX72XX::FC16_HW, dataPin, clkPin, csPin, numDevices),
+      _numDevices(numDevices),
+      _hardwareType(MD_MAX72XX::FC16_HW),
+      _dataPin(dataPin), _clkPin(clkPin), _csPin(csPin) {}
+
+void DisplayManager::setHardwareType(uint8_t hwType) {
+    _hardwareType = hwType;
+}
 
 void DisplayManager::begin() {
+    new (&_parola) MD_Parola((MD_MAX72XX::moduleType_t)_hardwareType, _dataPin, _clkPin, _csPin, _numDevices);
     _parola.begin();
     _parola.setIntensity(5); // 0-15
     _parola.displayClear();
@@ -30,4 +38,11 @@ void DisplayManager::displayLevel(float percent) {
 
 void DisplayManager::update() {
     _parola.displayAnimate();
+}
+
+void DisplayManager::setBrightness(int value) {
+    int v = value;
+    if (v < 0) v = 0;
+    if (v > 15) v = 15;
+    _parola.setIntensity(v);
 }

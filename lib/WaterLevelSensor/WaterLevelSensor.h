@@ -10,6 +10,8 @@ public:
     // Returns the water level as a percentage (0-100)
     float getWaterLevelPercent() const;
 
+    void setTankHeightCm(float h);
+
 private:
     int _triggerPin;
     int _echoPin;
