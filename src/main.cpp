@@ -37,6 +37,10 @@ const unsigned long BLINK_INTERVAL_SLOW = 500;  // ms
 const unsigned long BLINK_INTERVAL_FAST = 150;  // ms
 bool ledOn = false;
 
+volatile bool shouldReboot = false;
+
+float lastDistance = -1.0f;
+
 void setLedState(LedState state) {
     ledState = state;
     if (state == LED_ON) {
@@ -86,6 +90,9 @@ void showLogOnDisplay(const String& log) {
         lastDisplay = now;
     }
 }
+
+// Forward declaration for getDisplayString
+String getDisplayString(const Config& config, float distance, float& percentOut);
 
 void setup() {
     Serial.begin(9600);
@@ -160,6 +167,10 @@ const unsigned long publishInterval = 10000; // 10 seconds
 
 void loop() {
     handleLed();
+    if (shouldReboot) {
+        delay(500); // Allow time for HTTP response to flush
+        ESP.restart();
+    }
     if (WiFi.status() == WL_CONNECTED) {
         mqttClient.loop();
     } else {
@@ -183,42 +194,15 @@ void loop() {
         lastSensorRead = now;
         lastIntervalMs = intervalMs;
     }
-    float percent = sensor.getWaterLevelPercent();
-    float distance = sensor.readDistanceCm();
-    float tankDepth = config.tankDepth > 0 ? config.tankDepth : 100.0f;
-    String displayStr;
-    if (distance < 0) {
-        displayStr = "Error";
-    } else if (config.displayMode == "level") {
-        if (config.outputUnit == "cm") {
-            float levelCm = tankDepth - distance;
-            if (levelCm < 0) levelCm = 0;
-            displayStr = String(levelCm, 1) + "cm";
-        } else if (config.outputUnit == "in") {
-            float levelIn = (tankDepth - distance) / 2.54f;
-            if (levelIn < 0) levelIn = 0;
-            displayStr = String(levelIn, 1) + "in";
-        } else {
-            displayStr = String(percent, 1) + "%";
-        }
-    } else if (config.displayMode == "distance") {
-        if (config.outputUnit == "cm") {
-            displayStr = String(distance, 1) + "cm";
-        } else if (config.outputUnit == "in") {
-            displayStr = String(distance/2.54f, 1) + "in";
-        } else {
-            displayStr = String(distance, 1) + "%";
-        }
-    } else if (config.displayMode == "percent") {
-        displayStr = String(percent, 1) + "%";
-    } else if (config.displayMode == "text") {
-        displayStr = config.deviceName.length() ? config.deviceName : "WaterLevel";
-    } else {
-        displayStr = String(percent, 1) + "%";
+    if (now - lastSensorRead > intervalMs) {
+        lastSensorRead = now;
+        lastDistance = sensor.readDistanceCm();
     }
+    float percent = 0.0f;
+    String displayStr = getDisplayString(config, lastDistance, percent);
     // Debug print for display logic
-    Serial.printf("[DEBUG] tankDepth: %.1f, distance: %.1f, levelCm: %.1f, levelIn: %.1f, displayStr: %s\n",
-        tankDepth, distance, tankDepth - distance, (tankDepth - distance) / 2.54f, displayStr.c_str());
+    Serial.printf("[DEBUG] tankDepth: %.1f, distance: %.1f, displayStr: %s\n",
+        config.tankDepth, lastDistance, displayStr.c_str());
     // Only scroll if enabled in config
     bool scroll = config.displayScrollEnabled;
     static String lastDisplayStr;
@@ -234,13 +218,22 @@ void loop() {
     }
     display.update();
 
+    // MQTT publish (every publishInterval)
+    static unsigned long lastPublish = 0;
+    if (now - lastPublish > publishInterval) {
+        lastPublish = now;
+        if (mqttClient.isConnected()) {
+            String payload = "{\"display\":\"" + displayStr + "\",\"percent\":" + String(percent, 1) + ",\"distance\":" + String(lastDistance, 1) + "}";
+            mqttClient.publish(config.mqttTopic, payload);
+        }
+    }
+
     // Periodically log sensor connection status
     static unsigned long lastSensorStatus = 0;
     if (now - lastSensorStatus > 15000) {
         lastSensorStatus = now;
-        float testDistance = sensor.readDistanceCm();
-        if (testDistance >= 0) {
-            Serial.println("[SENSOR] Sensor connected. Distance: " + String(testDistance, 1) + " cm");
+        if (lastDistance >= 0) {
+            Serial.println("[SENSOR] Sensor connected. Display: " + displayStr);
         } else {
             Serial.println("[SENSOR] Sensor NOT connected! (timeout or error)");
         }

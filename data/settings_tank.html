@@ -24,13 +24,46 @@
       <option value="cm" {{OUTPUT_UNIT_CM_SELECTED}}>Centimeters (cm)</option>
       <option value="in" {{OUTPUT_UNIT_IN_SELECTED}}>Inches (in)</option>
       <option value="percent" {{OUTPUT_UNIT_PERCENT_SELECTED}}>Percent (%)</option>
+      <option value="quantity" {{OUTPUT_UNIT_QUANTITY_SELECTED}}>Quantity</option>
     </select>
+    <label for="tankShape">Tank Shape</label>
+    <select name="tankShape" id="tankShape">
+      <option value="rectangle" {{TANK_SHAPE_RECTANGLE_SELECTED}}>Rectangle</option>
+      <option value="cylinder" {{TANK_SHAPE_CYLINDER_SELECTED}}>Cylinder</option>
+    </select>
+    <div id="rectFields">
+      <label for="tankWidth">Tank Width (cm)</label>
+      <input name="tankWidth" id="tankWidth" type="number" step="0.1" value="{{TANK_WIDTH}}">
+      <label for="tankLength">Tank Length (cm)</label>
+      <input name="tankLength" id="tankLength" type="number" step="0.1" value="{{TANK_LENGTH}}">
+    </div>
+    <div id="cylFields">
+      <label for="tankDiameter">Tank Diameter (cm)</label>
+      <input name="tankDiameter" id="tankDiameter" type="number" step="0.1" value="{{TANK_DIAMETER}}">
+    </div>
     <input type="submit" value="Save">
   </form>
   <div id="tankMsg"></div>
   <a href="/" class="back-home">← Back to Home</a>
 </div>
 <script src="/script.js"></script>
+<script>
+// Show/hide fields based on tank shape
+function updateTankFields() {
+  var shape = document.getElementById('tankShape').value;
+  document.getElementById('rectFields').style.display = (shape === 'rectangle') ? '' : 'none';
+  document.getElementById('cylFields').style.display = (shape === 'cylinder') ? '' : 'none';
+}
+document.getElementById('tankShape').addEventListener('change', updateTankFields);
+window.addEventListener('DOMContentLoaded', updateTankFields);
+// Ensure all fields are enabled before submit so their values are sent
+var tankForm = document.getElementById('tankForm');
+tankForm.addEventListener('submit', function(e) {
+  document.getElementById('tankWidth').disabled = false;
+  document.getElementById('tankLength').disabled = false;
+  document.getElementById('tankDiameter').disabled = false;
+});
+</script>
 {{FOOTER}}
 </body>
 </html> 

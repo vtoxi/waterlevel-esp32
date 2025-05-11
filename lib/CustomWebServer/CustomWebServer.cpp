@@ -4,6 +4,71 @@
 #include "Logger.h"
 #include <FS.h>
 
+extern float lastDistance;
+
+// Place getDisplayString at file scope, before any other code
+String getDisplayString(const Config& config, float distance, float& percentOut) {
+    float tankDepth = config.tankDepth > 0 ? config.tankDepth : 100.0f;
+    percentOut = (distance < 0 || tankDepth <= 0) ? 0.0f : ((tankDepth - distance) / tankDepth * 100.0f);
+    if (distance < 0) return "ERROR";
+    if (distance > tankDepth) return "RANGE ERR" + String(distance);
+    if (config.displayMode == "level") {
+        if (config.outputUnit == "cm") {
+            float levelCm = tankDepth - distance;
+            if (levelCm < 0) levelCm = 0;
+            return String(levelCm, 1) + " cm";
+        } else if (config.outputUnit == "in") {
+            float levelIn = (tankDepth - distance) / 2.54f;
+            if (levelIn < 0) levelIn = 0;
+            return String(levelIn, 1) + " in";
+        } else {
+            return String(percentOut, 1) + " %";
+        }
+    } else if (config.displayMode == "distance") {
+        if (config.outputUnit == "cm") {
+            return String(distance, 1) + " cm";
+        } else if (config.outputUnit == "in") {
+            return String(distance/2.54f, 1) + " in";
+        } else {
+            return String(distance, 1) + " %";
+        }
+    } else if (config.displayMode == "percent") {
+        return String(percentOut, 1) + "%";
+    } else if (config.displayMode == "volume") {
+        // Volume calculation
+        float levelCm = tankDepth - distance;
+        if (levelCm < 0) levelCm = 0;
+        float volumeL = 0.0f;
+        if (config.tankShape == "cylinder" && config.tankDiameter > 0) {
+            float radius = config.tankDiameter / 2.0f;
+            float area = 3.14159265f * radius * radius;
+            volumeL = area * levelCm / 1000.0f; // cm^2 * cm = cm^3, /1000 = L
+        } else if (config.tankShape == "rectangle" && config.tankWidth > 0 && config.tankLength > 0) {
+            float area = config.tankWidth * config.tankLength;
+            volumeL = area * levelCm / 1000.0f;
+        } else {
+            return "N/A";
+        }
+        if (config.outputUnit == "gal") {
+            float volumeGal = volumeL * 0.264172f;
+            return String(volumeGal, 1) + " gal";
+        } else {
+            return String(volumeL, 1) + " L";
+        }
+    } else if (config.displayMode == "text") {
+        return config.deviceName.length() ? config.deviceName : "WaterLevel";
+    } else if (config.displayMode == "status") {
+        if (distance < 0) return "ERROR";
+        if (percentOut < config.alertLow) return "LOW";
+        if (percentOut >= config.alertHigh) return "FULL";
+        return "OK";
+    } else {
+        return String(percentOut, 1) + "%";
+    }
+}
+
+extern volatile bool shouldReboot;
+
 String settingsNav(const String &active)
 {
     String nav = "<nav class='nav'>";
@@ -143,18 +208,54 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         Logger::info(settingName + " settings saved" + (rebootRequired ? ", rebooting..." : "."));
         if (rebootRequired) {
             request->send(200, "text/html", "<h2>" + settingName + " Settings Saved! Rebooting...</h2>");
-            delay(1000);
-            ESP.restart();
+            shouldReboot = true;
         } else {
             request->send(200, "text/html", "<h2>" + settingName + " Settings Saved!</h2>");
         }
     };
 
     // --- Water Level API Endpoint ---
-    _server.on("/api/level", HTTP_GET, [&sensor](AsyncWebServerRequest *request) {
-        float percent = sensor.getWaterLevelPercent();
-        String json = "{\"level\":" + String(percent, 1) + "}";
+    _server.on("/api/level", HTTP_GET, [&sensor, &configManager](AsyncWebServerRequest *request) {
+        Config config;
+        configManager.load(config);
+        sensor.setTankHeightCm(config.tankDepth);
+        float percent = 0.0f;
+        String displayStr = getDisplayString(config, lastDistance, percent);
+        String json = "{\"level\":" + String(percent, 1) + ",\"display\":\"" + displayStr + "\"}";
         request->send(200, "application/json", json);
+    });
+
+    // --- Volume Unit API Endpoint ---
+    _server.on("/api/volumeunit", HTTP_GET, [&configManager](AsyncWebServerRequest *request) {
+        Config config;
+        configManager.load(config);
+        String unit = config.volumeUnit.length() ? config.volumeUnit : "L";
+        request->send(200, "application/json", "{\"unit\":\"" + unit + "\"}");
+    });
+
+    _server.on("/api/volumeunit", HTTP_POST, [&configManager](AsyncWebServerRequest *request) {
+        if (request->contentType() == "application/json") {
+            String body;
+            if (request->hasParam("plain", true)) {
+                body = request->getParam("plain", true)->value();
+            }
+            int idx = body.indexOf("unit");
+            if (idx != -1) {
+                int colon = body.indexOf(":", idx);
+                int quote1 = body.indexOf('"', colon);
+                int quote2 = body.indexOf('"', quote1 + 1);
+                String unit = body.substring(quote1 + 1, quote2);
+                if (unit == "L" || unit == "gal") {
+                    Config config;
+                    configManager.load(config);
+                    config.volumeUnit = unit;
+                    configManager.save(config);
+                    request->send(200, "application/json", "{}\n");
+                    return;
+                }
+            }
+        }
+        request->send(400, "application/json", "{\"error\":\"Invalid unit\"}\n");
     });
 
     // --- Dashboard with Animated Water Tank ---
@@ -162,6 +263,7 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         Logger::info("Home page accessed from IP: " + request->client()->remoteIP().toString());
         Config config;
         configManager.load(config);
+        sensor.setTankHeightCm(config.tankDepth);
         String html = loadTemplateFile("/dashboard.html");
         String header = loadTemplateFile("/header.html");
         String footer = loadTemplateFile("/footer.html");
@@ -169,34 +271,23 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         header.replace("{{TITLE}}", "Device Home");
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
-        float percent = sensor.getWaterLevelPercent();
-        float distance = sensor.readDistanceCm();
-        float tankDepth = config.tankDepth > 0 ? config.tankDepth : 100.0f;
-        bool sensorError = (distance < 0.01f);
-        String levelStr, tankIconClass;
-        if (sensorError) {
-            levelStr = "ERROR";
-            tankIconClass = "tank-error";
-            distance = 0.0f;
-        } else {
-            if (config.outputUnit == "cm") {
-                float levelCm = tankDepth - distance;
-                if (levelCm < 0) levelCm = 0;
-                levelStr = String(levelCm, 1) + " cm";
-            } else if (config.outputUnit == "in") {
-                float levelIn = (tankDepth - distance) / 2.54f;
-                if (levelIn < 0) levelIn = 0;
-                levelStr = String(levelIn, 1) + " in";
-            } else {
-                levelStr = String(percent, 1) + " %";
-            }
-            tankIconClass = "";
-        }
+        float percent = 0.0f;
+        String levelStr = getDisplayString(config, lastDistance, percent);
+        String tankIconClass = (levelStr == "ERROR" || levelStr.startsWith("RANGE ERR")) ? "tank-error" : "";
         html.replace("{{LEVEL_STR}}", levelStr);
         html.replace("{{TANK_ICON_CLASS}}", tankIconClass);
         html.replace("{{OUTPUT_UNIT}}", config.outputUnit);
-        html.replace("{{TANK_DEPTH}}", String(tankDepth));
-        html.replace("{{DISTANCE}}", String(distance));
+        html.replace("{{TANK_DEPTH}}", String(config.tankDepth));
+        html.replace("{{TANK_WIDTH}}", String(config.tankWidth));
+        html.replace("{{TANK_LENGTH}}", String(config.tankLength));
+        html.replace("{{TANK_DIAMETER}}", String(config.tankDiameter));
+        html.replace("{{TANK_SHAPE}}", config.tankShape);
+        html.replace("{{RECT_STYLE}}", config.tankShape == "rectangle" ? "display:block;" : "display:none;");
+        html.replace("{{CYL_STYLE}}", config.tankShape == "cylinder" ? "display:block;" : "display:none;");
+        html.replace("{{DISTANCE}}", String(lastDistance));
+        String displayModeForDashboard = config.outputUnit == "quantity" ? "volume" : config.displayMode;
+        html.replace("{{DISPLAY_MODE}}", displayModeForDashboard);
+        html.replace("{{VOLUME_UNIT}}", config.volumeUnit.length() ? config.volumeUnit : "L");
         request->send(200, "text/html", html);
     });
 
@@ -248,6 +339,12 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         html.replace("{{OUTPUT_UNIT_CM_SELECTED}}", config.outputUnit == "cm" ? "selected" : "");
         html.replace("{{OUTPUT_UNIT_IN_SELECTED}}", config.outputUnit == "in" ? "selected" : "");
         html.replace("{{OUTPUT_UNIT_PERCENT_SELECTED}}", config.outputUnit == "percent" ? "selected" : "");
+        html.replace("{{OUTPUT_UNIT_QUANTITY_SELECTED}}", config.outputUnit == "quantity" ? "selected" : "");
+        html.replace("{{TANK_SHAPE_RECTANGLE_SELECTED}}", config.tankShape == "rectangle" ? "selected" : "");
+        html.replace("{{TANK_SHAPE_CYLINDER_SELECTED}}", config.tankShape == "cylinder" ? "selected" : "");
+        html.replace("{{TANK_WIDTH}}", String(config.tankWidth, 1));
+        html.replace("{{TANK_LENGTH}}", String(config.tankLength, 1));
+        html.replace("{{TANK_DIAMETER}}", String(config.tankDiameter, 1));
         request->send(200, "text/html", html);
     });
 
@@ -261,7 +358,14 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
                 Logger::info("Converting tank depth from inches to cm: " + String(depth));
             }
             config.tankDepth = depth;
-            config.outputUnit = request->getParam("outputUnit", true)->value();
+            if (request->hasParam("outputUnit", true)) {
+                config.outputUnit = request->getParam("outputUnit", true)->value();
+            }
+            // New fields
+            config.tankShape = request->getParam("tankShape", true)->value();
+            config.tankWidth = request->hasParam("tankWidth", true) ? request->getParam("tankWidth", true)->value().toFloat() : 0.0f;
+            config.tankLength = request->hasParam("tankLength", true) ? request->getParam("tankLength", true)->value().toFloat() : 0.0f;
+            config.tankDiameter = request->hasParam("tankDiameter", true) ? request->getParam("tankDiameter", true)->value().toFloat() : 0.0f;
             // No direct hardware update here; main loop will apply changes
         }, false);
     });
@@ -321,6 +425,8 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         html.replace("{{LEVEL_SELECTED}}", config.displayMode == "level" ? "selected" : "");
         html.replace("{{PERCENT_SELECTED}}", config.displayMode == "percent" ? "selected" : "");
         html.replace("{{DISTANCE_SELECTED}}", config.displayMode == "distance" ? "selected" : "");
+        html.replace("{{VOLUME_SELECTED}}", config.displayMode == "volume" ? "selected" : "");
+        html.replace("{{STATUS_SELECTED}}", config.displayMode == "status" ? "selected" : "");
         html.replace("{{TEXT_SELECTED}}", config.displayMode == "text" ? "selected" : "");
         html.replace("{{FC16_SELECTED}}", config.displayHardwareType == "FC16_HW" ? "selected" : "");
         html.replace("{{GENERIC_SELECTED}}", config.displayHardwareType == "GENERIC_HW" ? "selected" : "");

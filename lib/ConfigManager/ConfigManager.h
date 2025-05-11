@@ -28,6 +28,11 @@ struct Config {
     String deviceName = "";
     String otaEnabled = "off";
     int sensorReadInterval = 1; // JSN-SR04T reading interval in seconds (min 1)
+    String tankShape = "rectangle"; // or "cylinder"
+    float tankDiameter = 0.0f; // for cylinder, in cm
+    float tankWidth = 0.0f;    // for rectangle, in cm
+    float tankLength = 0.0f;   // for rectangle, in cm
+    String volumeUnit = "L"; // for liters or gallons
 };
 
 class ConfigManager {

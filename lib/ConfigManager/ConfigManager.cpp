@@ -35,6 +35,11 @@ bool ConfigManager::load(Config& config) const {
     config.otaEnabled = prefs.getString("otaEnabled", "off");
     config.sensorReadInterval = prefs.getInt("sensorReadInterval", 1);
     config.tankDepthUnit = prefs.getString("tankDepthUnit", "cm");
+    config.tankShape = prefs.getString("tankShape", "rectangle");
+    config.tankWidth = prefs.getFloat("tankWidth", 0.0f);
+    config.tankLength = prefs.getFloat("tankLength", 0.0f);
+    config.tankDiameter = prefs.getFloat("tankDiameter", 0.0f);
+    config.volumeUnit = prefs.getString("volumeUnit", "L");
 
     prefs.end();
     return true;
@@ -70,6 +75,11 @@ bool ConfigManager::save(const Config& config) const {
     prefs.putString("otaEnabled", config.otaEnabled);
     prefs.putInt   ("sensorReadInterval", config.sensorReadInterval);
     prefs.putString("tankDepthUnit", config.tankDepthUnit);
+    prefs.putString("tankShape", config.tankShape);
+    prefs.putFloat("tankWidth", config.tankWidth);
+    prefs.putFloat("tankLength", config.tankLength);
+    prefs.putFloat("tankDiameter", config.tankDiameter);
+    prefs.putString("volumeUnit", config.volumeUnit);
 
     prefs.end();
     return true;
