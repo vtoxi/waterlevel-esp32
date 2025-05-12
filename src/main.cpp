@@ -29,6 +29,7 @@ Config config;
 DisplayManager display(DATA_PIN, CLK_PIN, CS_PIN, NUM_MATRICES);
 
 #define LED_PIN 2 // Onboard LED for most ESP32 dev boards
+#define RESET_BUTTON_PIN 0  // GPIO for hard reset button
 
 enum LedState { LED_OFF, LED_ON, LED_BLINK_SLOW, LED_BLINK_FAST };
 LedState ledState = LED_OFF;
@@ -95,6 +96,22 @@ void showLogOnDisplay(const String& log) {
 String getDisplayString(const Config& config, float distance, float& percentOut);
 
 void setup() {
+    pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
+    // Check for hard reset button held at boot
+    if (digitalRead(RESET_BUTTON_PIN) == LOW) {
+        unsigned long start = millis();
+        while (digitalRead(RESET_BUTTON_PIN) == LOW) {
+            if (millis() - start > 3000) { // 3 seconds
+                Serial.println("[RESET] Hard reset button held. Resetting all settings to default...");
+                ConfigManager configManager;
+                configManager.reset();
+                WiFi.disconnect(true, true);
+                delay(1000);
+                ESP.restart();
+            }
+            delay(10);
+        }
+    }
     Serial.begin(9600);
     Logger::begin();
     // Logger::setDisplayCallback(showLogOnDisplay); // Disabled: do not print logs on the display
@@ -109,6 +126,25 @@ void setup() {
         Serial.println("[CONFIG] Configuration loaded successfully.");
     } else {
         Serial.println("[CONFIG] Failed to load configuration!");
+    }
+
+    // --- DHCP fallback logic ---
+    bool staticOk = false;
+    if (config.staticIp.length() > 0 && config.gateway.length() > 0 && config.subnet.length() > 0) {
+        IPAddress ip, gw, sn;
+        if (ip.fromString(config.staticIp) && gw.fromString(config.gateway) && sn.fromString(config.subnet)) {
+            // Check if all are in the same subnet (simple check: first 3 octets match)
+            if ((ip[0] == gw[0] && ip[1] == gw[1] && ip[2] == gw[2]) &&
+                (ip[0] == sn[0] && ip[1] == sn[1] && ip[2] == sn[2])) {
+                WiFi.config(ip, gw, sn);
+                staticOk = true;
+                Serial.printf("[WIFI] Using static IP: %s\n", config.staticIp.c_str());
+            }
+        }
+    }
+    if (!staticOk) {
+        WiFi.config(0U, 0U, 0U); // Force DHCP
+        Serial.println("[WIFI] Using DHCP (no valid static IP config)");
     }
 
     Serial.println("[SENSOR] Initializing sensor...");

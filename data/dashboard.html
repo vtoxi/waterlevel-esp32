@@ -35,15 +35,15 @@
           <polygon id='water-fill-3d' points='100,190 240,190 240,190 100,190' fill='#29b6f6' opacity='0.7'/>
           <!-- Tank outline (front) -->
           <polygon points='100,70 240,70 240,190 100,190' fill='none' stroke='#0288d1' stroke-width='3'/>
-          <!-- Height dimension (left) -->
-          <line x1='50' y1='70' x2='50' y2='190' stroke='#333' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
-          <text x='35' y='130' font-size='12' fill='#333' transform='rotate(-90 35,130)'>{{TANK_DEPTH}} cm</text>
-          <!-- Width dimension (bottom) -->
-          <line x1='100' y1='200' x2='240' y2='200' stroke='#333' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
-          <text x='170' y='215' font-size='12' fill='#333' text-anchor='middle'>{{TANK_WIDTH}} cm</text>
-          <!-- Length dimension (top, dashed) -->
-          <line x1='60' y1='35' x2='200' y2='35' stroke='#333' stroke-dasharray='4' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
-          <text x='130' y='25' font-size='12' fill='#333' text-anchor='middle'>{{TANK_LENGTH}} cm</text>
+          <!-- Height dimension (front face, left side) -->
+          <line x1="90" y1="190" x2="90" y2="70" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+          <text x="75" y="130" font-size="12" fill="#333" transform="rotate(-90 75,130)">{{TANK_DEPTH}} cm</text>
+          <!-- Width dimension (front face, bottom) -->
+          <line x1="100" y1="200" x2="240" y2="200" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+          <text x="170" y="215" font-size="12" fill="#333" text-anchor="middle">{{TANK_WIDTH}} cm</text>
+          <!-- Length dimension (top face, back) -->
+          <line x1="60" y1="40" x2="200" y2="40" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+          <text x="130" y="30" font-size="12" fill="#333" text-anchor="middle">{{TANK_LENGTH}} cm</text>
           <!-- Water level text overlay -->
           <text id='rect-water-label' x='170' y='150' font-size='22' fill='#01579b' text-anchor='middle' alignment-baseline='middle' font-weight='bold'></text>
           <!-- Arrowhead marker definition -->
