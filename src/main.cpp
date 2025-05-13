@@ -6,10 +6,15 @@
 #include "CustomWebServer.h"
 #include "DisplayManager.h"
 #include "Logger.h"
+#include <LittleFS.h>
+#include "LogManager.h"
+#include "SevenSegmentDisplayManager.h"
+#include "IDisplayManager.h"
+#include "SSD1306DisplayManager.h"
 
 // Pin definitions (adjust as needed)
-constexpr int TRIGGER_PIN = 5;
-constexpr int ECHO_PIN = 18;
+constexpr int TRIGGER_PIN = 17;
+constexpr int ECHO_PIN = 5;
 constexpr float TANK_HEIGHT_CM = 300.0f; // Set your tank height in cm
 
 WaterLevelSensor sensor(TRIGGER_PIN, ECHO_PIN, TANK_HEIGHT_CM);
@@ -41,6 +46,12 @@ bool ledOn = false;
 volatile bool shouldReboot = false;
 
 float lastDistance = -1.0f;
+
+SevenSegmentDisplayManager sevenSegmentDisplay(DATA_PIN, CLK_PIN, CS_PIN);
+
+SSD1306DisplayManager ssd1306Display(128, 64, 21, 22); // default pins, will re-init if needed
+
+IDisplayManager* displayPtr = nullptr;
 
 void setLedState(LedState state) {
     ledState = state;
@@ -187,15 +198,38 @@ void setup() {
     }
 
     Serial.println("[DISPLAY] Initializing display...");
-    // Set hardware type from config
-    uint8_t hwType = MD_MAX72XX::FC16_HW;
-    if (config.displayHardwareType == "GENERIC_HW") hwType = MD_MAX72XX::GENERIC_HW;
-    else if (config.displayHardwareType == "PAROLA_HW") hwType = MD_MAX72XX::PAROLA_HW;
-    else if (config.displayHardwareType == "ICSTATION_HW") hwType = MD_MAX72XX::ICSTATION_HW;
-    display.setHardwareType(hwType);
-    display.begin();
-    display.setBrightness(config.displayBrightness);
-    Serial.println("[DISPLAY] Display initialized.");
+    if (config.displayType == "ssd1306") {
+        // Re-init with correct size and pins
+        new (&ssd1306Display) SSD1306DisplayManager(config.ssd1306Width, config.ssd1306Height, 21, 22); // SDA=21, SCL=22 (adjust if needed)
+        ssd1306Display.begin();
+        displayPtr = &ssd1306Display;
+        Serial.println("[DISPLAY] SSD1306DisplayManager initialized.");
+    } else if (config.displayType == "sevensegment") {
+        sevenSegmentDisplay.begin();
+        displayPtr = &sevenSegmentDisplay;
+        Serial.println("[DISPLAY] SevenSegmentDisplayManager initialized.");
+    } else {
+        uint8_t hwType = MD_MAX72XX::FC16_HW;
+        if (config.displayHardwareType == "GENERIC_HW") hwType = MD_MAX72XX::GENERIC_HW;
+        else if (config.displayHardwareType == "PAROLA_HW") hwType = MD_MAX72XX::PAROLA_HW;
+        else if (config.displayHardwareType == "ICSTATION_HW") hwType = MD_MAX72XX::ICSTATION_HW;
+        display.setHardwareType(hwType);
+        display.begin();
+        display.setBrightness(config.displayBrightness);
+        displayPtr = &display;
+        Serial.println("[DISPLAY] Matrix DisplayManager initialized.");
+    }
+
+    LittleFS.begin();
+    LogManager::initLogFile();
+    // Create CSV file with header if it doesn't exist
+    if (!LittleFS.exists("/level_log.csv")) {
+        File f = LittleFS.open("/level_log.csv", "w");
+        if (f) {
+            f.println("timestamp,distance_cm,percent,level_cm,level_in,liters,gallons");
+            f.close();
+        }
+    }
 }
 
 unsigned long lastPublish = 0;
@@ -223,36 +257,39 @@ void loop() {
     unsigned long now = millis();
     configManager.load(config);
     sensor.setTankHeightCm(config.tankDepth);
-    display.setBrightness(config.displayBrightness);
-    int intervalMs = (config.sensorReadInterval < 1 ? 1 : config.sensorReadInterval) * 1000;
-    static int lastIntervalMs = 1000;
-    if (intervalMs != lastIntervalMs) {
-        lastSensorRead = now;
-        lastIntervalMs = intervalMs;
-    }
-    if (now - lastSensorRead > intervalMs) {
-        lastSensorRead = now;
-        lastDistance = sensor.readDistanceCm();
-    }
     float percent = 0.0f;
     String displayStr = getDisplayString(config, lastDistance, percent);
-    // Debug print for display logic
-    Serial.printf("[DEBUG] tankDepth: %.1f, distance: %.1f, displayStr: %s\n",
-        config.tankDepth, lastDistance, displayStr.c_str());
-    // Only scroll if enabled in config
-    bool scroll = config.displayScrollEnabled;
-    static String lastDisplayStr;
-    static bool lastScroll = false;
-    if (config.displayScrollEnabled != lastScroll) {
-        lastDisplayStr = ""; // Force update
-        lastScroll = config.displayScrollEnabled;
+    if (config.displayType == "sevensegment") {
+        static float lastValue = NAN;
+        float value = 0.0f;
+        if (config.displayMode == "level" || config.displayMode == "volume") {
+            value = config.tankDepth - lastDistance;
+        } else if (config.displayMode == "distance") {
+            value = lastDistance;
+        } else if (config.displayMode == "percent") {
+            value = percent;
+        } else {
+            value = displayStr.toFloat();
+        }
+        if (value != lastValue) {
+            displayPtr->displayNumber(value);
+            lastValue = value;
+        }
+    } else {
+        bool scroll = config.displayScrollEnabled;
+        static String lastDisplayStr;
+        static bool lastScroll = false;
+        if (config.displayScrollEnabled != lastScroll) {
+            lastDisplayStr = "";
+            lastScroll = config.displayScrollEnabled;
+        }
+        if (displayStr != lastDisplayStr || scroll != lastScroll) {
+            displayPtr->displayText(displayStr.c_str(), scroll);
+            lastDisplayStr = displayStr;
+            lastScroll = scroll;
+        }
+        if (config.displayType == "matrix") display.update();
     }
-    if (displayStr != lastDisplayStr || scroll != lastScroll) {
-        display.displayText(displayStr.c_str(), scroll);
-        lastDisplayStr = displayStr;
-        lastScroll = scroll;
-    }
-    display.update();
 
     // MQTT publish (every publishInterval)
     static unsigned long lastPublish = 0;
@@ -273,5 +310,30 @@ void loop() {
         } else {
             Serial.println("[SENSOR] Sensor NOT connected! (timeout or error)");
         }
+    }
+
+    // Periodic water level logging
+    static unsigned long lastLog = 0;
+    const unsigned long logInterval = 60000; // 60 seconds
+    if (now - lastLog > logInterval) {
+        lastLog = now;
+        float tankDepth = config.tankDepth;
+        float distance = lastDistance;
+        float levelCm = tankDepth - distance;
+        if (levelCm < 0) levelCm = 0;
+        float levelIn = levelCm / 2.54f;
+        float liters = 0.0f;
+        float gallons = 0.0f;
+        if (config.tankShape == "rectangle" && config.tankWidth > 0 && config.tankLength > 0) {
+            liters = (config.tankWidth * config.tankLength * levelCm) / 1000.0f;
+        } else if (config.tankShape == "cylinder" && config.tankDiameter > 0) {
+            float radius = config.tankDiameter / 2.0f;
+            float area = 3.14159265f * radius * radius;
+            liters = (area * levelCm) / 1000.0f;
+        }
+        gallons = liters * 0.264172f;
+        float percent = (distance < 0 || tankDepth <= 0) ? 0.0f : ((tankDepth - distance) / tankDepth * 100.0f);
+        if (percent < 0) percent = 0;
+        LogManager::logLevelReading(millis()/1000UL, distance, percent, levelCm, levelIn, liters, gallons);
     }
 }

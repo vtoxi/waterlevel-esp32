@@ -11,12 +11,12 @@
 <div class="container">
   <h2>Device Info / Reset</h2>
   <form id="deviceForm">
-    <label for="devicename">Device Name</label>
-    <input name="devicename" id="devicename" type="text" value="{{DEVICE_NAME}}" placeholder="waterlevel-01">
-    <label for="ota">Enable OTA Update</label>
-    <select name="ota" id="ota">
-      <option value="on" {{OTA_ON_SELECTED}}>On</option>
-      <option value="off" {{OTA_OFF_SELECTED}}>Off</option>
+    <label for="deviceName">Device Name</label>
+    <input type="text" name="deviceName" id="deviceName" value="{{DEVICE_NAME}}">
+    <label for="otaEnabled">OTA Updates</label>
+    <select name="otaEnabled" id="otaEnabled">
+      <option value="on" {{OTA_ON_SELECTED}}>Enabled</option>
+      <option value="off" {{OTA_OFF_SELECTED}}>Disabled</option>
     </select>
     <input type="submit" value="Save">
   </form>

@@ -1,5 +1,6 @@
 #include "ConfigManager.h"
 #include <Preferences.h>
+#include "Logger.h"
 
 #define PREF_NAMESPACE "waterlevel"
 
@@ -7,7 +8,16 @@ ConfigManager::ConfigManager() {}
 
 bool ConfigManager::load(Config& config) const {
     Preferences prefs;
-    if (!prefs.begin(PREF_NAMESPACE, true)) return false;
+    if (!prefs.begin(PREF_NAMESPACE, true)) {
+        Logger::error("[ConfigManager] Failed to open NVS namespace 'waterlevel' in read mode. Initializing with defaults.");
+        // Save defaults to create the namespace
+        save(config); // config already has defaults from struct
+        // Try again to open in read mode
+        if (!prefs.begin(PREF_NAMESPACE, true)) {
+            Logger::error("[ConfigManager] Failed to create NVS namespace 'waterlevel' after initializing defaults.");
+            return false;
+        }
+    }
 
     config.wifiSsid = prefs.getString("wifiSsid", "");
     config.wifiPassword = prefs.getString("wifiPassword", "");
@@ -40,6 +50,9 @@ bool ConfigManager::load(Config& config) const {
     config.tankLength = prefs.getFloat("tankLength", 0.0f);
     config.tankDiameter = prefs.getFloat("tankDiameter", 0.0f);
     config.volumeUnit = prefs.getString("volumeUnit", "L");
+    config.displayType = prefs.getString("displayType", "matrix");
+    config.ssd1306Width = prefs.getInt("ssd1306Width", 128);
+    config.ssd1306Height = prefs.getInt("ssd1306Height", 64);
 
     prefs.end();
     return true;
@@ -80,6 +93,9 @@ bool ConfigManager::save(const Config& config) const {
     prefs.putFloat("tankLength", config.tankLength);
     prefs.putFloat("tankDiameter", config.tankDiameter);
     prefs.putString("volumeUnit", config.volumeUnit);
+    prefs.putString("displayType", config.displayType);
+    prefs.putInt("ssd1306Width", config.ssd1306Width);
+    prefs.putInt("ssd1306Height", config.ssd1306Height);
 
     prefs.end();
     return true;

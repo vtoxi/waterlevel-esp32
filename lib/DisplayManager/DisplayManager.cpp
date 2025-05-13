@@ -24,9 +24,9 @@ void DisplayManager::displayText(const char* text, bool scroll) {
     _parola.displayText(_currentText.c_str(), PA_CENTER, 50, 2000, scroll ? PA_SCROLL_LEFT : PA_PRINT, PA_NO_EFFECT);
 }
 
-void DisplayManager::displayNumber(long number) {
+void DisplayManager::displayNumber(float value) {
     char buf[16];
-    snprintf(buf, sizeof(buf), "%ld", number);
+    dtostrf(value, 0, 1, buf);
     displayText(buf, false);
 }
 
@@ -45,4 +45,8 @@ void DisplayManager::setBrightness(int value) {
     if (v < 0) v = 0;
     if (v > 15) v = 15;
     _parola.setIntensity(v);
+}
+
+void DisplayManager::clear() {
+    _parola.displayClear();
 }

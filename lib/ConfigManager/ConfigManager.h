@@ -33,6 +33,9 @@ struct Config {
     float tankWidth = 0.0f;    // for rectangle, in cm
     float tankLength = 0.0f;   // for rectangle, in cm
     String volumeUnit = "L"; // for liters or gallons
+    String displayType = "matrix"; // 'matrix', 'sevensegment', or 'ssd1306'
+    int ssd1306Width = 128;
+    int ssd1306Height = 64;
 };
 
 class ConfigManager {

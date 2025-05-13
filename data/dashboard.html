@@ -19,73 +19,80 @@
         <option value='gal'>Gallons (gal)</option>
       </select>
     </div>
-    <div class='tank-visual'>
-      <div id='rect-tank-svg' style='{{RECT_STYLE}}'>
-        <svg width='320' height='220' viewBox='0 0 320 220'>
-          <!-- 3D Tank: front, top, side -->
-          <!-- Top face -->
-          <polygon points='60,40 200,40 240,70 100,70' fill='#b3e5fc' stroke='#0288d1' stroke-width='2'/>
-          <!-- Left face -->
-          <polygon points='60,40 60,160 100,190 100,70' fill='#e0e0e0' stroke='#0288d1' stroke-width='2'/>
-          <!-- Right face -->
-          <polygon points='200,40 200,160 240,190 240,70' fill='#bdbdbd' stroke='#0288d1' stroke-width='2'/>
-          <!-- Front face (water background) -->
-          <polygon id='water-bg' points='100,70 240,70 240,190 100,190' fill='#e0f7fa' stroke='#0288d1' stroke-width='2'/>
-          <!-- Water fill (animated) -->
-          <polygon id='water-fill-3d' points='100,190 240,190 240,190 100,190' fill='#29b6f6' opacity='0.7'/>
-          <!-- Tank outline (front) -->
-          <polygon points='100,70 240,70 240,190 100,190' fill='none' stroke='#0288d1' stroke-width='3'/>
-          <!-- Height dimension (front face, left side) -->
-          <line x1="90" y1="190" x2="90" y2="70" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-          <text x="75" y="130" font-size="12" fill="#333" transform="rotate(-90 75,130)">{{TANK_DEPTH}} cm</text>
-          <!-- Width dimension (front face, bottom) -->
-          <line x1="100" y1="200" x2="240" y2="200" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-          <text x="170" y="215" font-size="12" fill="#333" text-anchor="middle">{{TANK_WIDTH}} cm</text>
-          <!-- Length dimension (top face, back) -->
-          <line x1="60" y1="40" x2="200" y2="40" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-          <text x="130" y="30" font-size="12" fill="#333" text-anchor="middle">{{TANK_LENGTH}} cm</text>
-          <!-- Water level text overlay -->
-          <text id='rect-water-label' x='170' y='150' font-size='22' fill='#01579b' text-anchor='middle' alignment-baseline='middle' font-weight='bold'></text>
-          <!-- Arrowhead marker definition -->
-          <defs>
-            <marker id='arrow' markerWidth='6' markerHeight='6' refX='3' refY='3' orient='auto' markerUnits='strokeWidth'>
-              <path d='M0,0 L6,3 L0,6 L2,3 z' fill='#333'/>
-            </marker>
-          </defs>
-        </svg>
+    <div class='tank-visual-chart-row' style='display:flex; gap:32px; align-items:flex-start; justify-content:center;'>
+      <div class='tank-svg-col' style='flex:1; min-width:320px; max-width:340px;'>
+        <div id='rect-tank-svg'>
+          <svg width='320' height='220' viewBox='0 0 320 220'>
+            <!-- 3D Tank: front, top, side -->
+            <!-- Top face -->
+            <polygon points='60,40 200,40 240,70 100,70' fill='#b3e5fc' stroke='#0288d1' stroke-width='2'/>
+            <!-- Left face -->
+            <polygon points='60,40 60,160 100,190 100,70' fill='#e0e0e0' stroke='#0288d1' stroke-width='2'/>
+            <!-- Right face -->
+            <polygon points='200,40 200,160 240,190 240,70' fill='#bdbdbd' stroke='#0288d1' stroke-width='2'/>
+            <!-- Front face (water background) -->
+            <polygon id='water-bg' points='100,70 240,70 240,190 100,190' fill='#e0f7fa' stroke='#0288d1' stroke-width='2'/>
+            <!-- Water fill (animated) -->
+            <polygon id='water-fill-3d' points='100,190 240,190 240,190 100,190' fill='#29b6f6' opacity='0.7'/>
+            <!-- Tank outline (front) -->
+            <polygon points='100,70 240,70 240,190 100,190' fill='none' stroke='#0288d1' stroke-width='3'/>
+            <!-- Height dimension (front face, left side) -->
+            <line x1="90" y1="190" x2="90" y2="70" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+            <text x="75" y="130" font-size="12" fill="#333" transform="rotate(-90 75,130)"></text>
+            <!-- Width dimension (front face, bottom) -->
+            <line x1="100" y1="200" x2="240" y2="200" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+            <text x="170" y="215" font-size="12" fill="#333" text-anchor="middle"></text>
+            <!-- Length dimension (top face, back) -->
+            <line x1="60" y1="40" x2="200" y2="40" stroke="#333" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+            <text x="130" y="30" font-size="12" fill="#333" text-anchor="middle"></text>
+            <!-- Water level text overlay -->
+            <text id='rect-water-label' x='170' y='150' font-size='22' fill='#01579b' text-anchor='middle' alignment-baseline='middle' font-weight='bold'></text>
+            <!-- Arrowhead marker definition -->
+            <defs>
+              <marker id='arrow' markerWidth='6' markerHeight='6' refX='3' refY='3' orient='auto' markerUnits='strokeWidth'>
+                <path d='M0,0 L6,3 L0,6 L2,3 z' fill='#333'/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+        <div id='cyl-tank-svg'>
+          <svg width='220' height='260' viewBox='0 0 220 260'>
+            <!-- Tank body (side walls) -->
+            <rect x='60' y='40' width='100' height='160' fill='#e0e0e0' stroke='#0288d1' stroke-width='2'/>
+            <!-- Top ellipse (tank opening) -->
+            <ellipse cx='110' cy='40' rx='50' ry='20' fill='#b3e5fc' stroke='#0288d1' stroke-width='2'/>
+            <!-- Bottom ellipse (tank base) -->
+            <ellipse cx='110' cy='200' rx='50' ry='20' fill='#b3e5fc' stroke='#0288d1' stroke-width='2'/>
+            <!-- Water fill (animated) -->
+            <g id='cyl-water-group'>
+              <rect id='cyl-water-rect' x='60' y='200' width='100' height='0' fill='#29b6f6' opacity='0.7'/>
+              <ellipse id='cyl-water-ellipse' cx='110' cy='200' rx='50' ry='20' fill='#29b6f6' opacity='0.7'/>
+            </g>
+            <!-- Tank outline (front) -->
+            <rect x='60' y='40' width='100' height='160' fill='none' stroke='#0288d1' stroke-width='3'/>
+            <!-- Height dimension (left) -->
+            <line x1='40' y1='40' x2='40' y2='200' stroke='#333' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
+            <text x='25' y='130' font-size='12' fill='#333' transform='rotate(-90 25,130)'></text>
+            <!-- Diameter dimension (bottom) -->
+            <line x1='60' y1='230' x2='160' y2='230' stroke='#333' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
+            <text x='110' y='245' font-size='12' fill='#333' text-anchor='middle'></text>
+            <!-- Water level text overlay -->
+            <text id='cyl-water-label' x='110' y='140' font-size='22' fill='#01579b' text-anchor='middle' alignment-baseline='middle' font-weight='bold'></text>
+            <!-- Arrowhead marker definition -->
+            <defs>
+              <marker id='arrow' markerWidth='6' markerHeight='6' refX='3' refY='3' orient='auto' markerUnits='strokeWidth'>
+                <path d='M0,0 L6,3 L0,6 L2,3 z' fill='#333'/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
       </div>
-      <div id='cyl-tank-svg' style='{{CYL_STYLE}}'>
-        <svg width='220' height='260' viewBox='0 0 220 260'>
-          <!-- Tank body (side walls) -->
-          <rect x='60' y='40' width='100' height='160' fill='#e0e0e0' stroke='#0288d1' stroke-width='2'/>
-          <!-- Top ellipse (tank opening) -->
-          <ellipse cx='110' cy='40' rx='50' ry='20' fill='#b3e5fc' stroke='#0288d1' stroke-width='2'/>
-          <!-- Bottom ellipse (tank base) -->
-          <ellipse cx='110' cy='200' rx='50' ry='20' fill='#b3e5fc' stroke='#0288d1' stroke-width='2'/>
-          <!-- Water fill (animated) -->
-          <g id='cyl-water-group'>
-            <rect id='cyl-water-rect' x='60' y='200' width='100' height='0' fill='#29b6f6' opacity='0.7'/>
-            <ellipse id='cyl-water-ellipse' cx='110' cy='200' rx='50' ry='20' fill='#29b6f6' opacity='0.7'/>
-          </g>
-          <!-- Tank outline (front) -->
-          <rect x='60' y='40' width='100' height='160' fill='none' stroke='#0288d1' stroke-width='3'/>
-          <!-- Height dimension (left) -->
-          <line x1='40' y1='40' x2='40' y2='200' stroke='#333' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
-          <text x='25' y='130' font-size='12' fill='#333' transform='rotate(-90 25,130)'>{{TANK_DEPTH}} cm</text>
-          <!-- Diameter dimension (bottom) -->
-          <line x1='60' y1='230' x2='160' y2='230' stroke='#333' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
-          <text x='110' y='245' font-size='12' fill='#333' text-anchor='middle'>{{TANK_DIAMETER}} cm</text>
-          <!-- Water level text overlay -->
-          <text id='cyl-water-label' x='110' y='140' font-size='22' fill='#01579b' text-anchor='middle' alignment-baseline='middle' font-weight='bold'></text>
-          <!-- Arrowhead marker definition -->
-          <defs>
-            <marker id='arrow' markerWidth='6' markerHeight='6' refX='3' refY='3' orient='auto' markerUnits='strokeWidth'>
-              <path d='M0,0 L6,3 L0,6 L2,3 z' fill='#333'/>
-            </marker>
-          </defs>
-        </svg>
+      <div class='chart-col' style='flex:1; min-width:320px; max-width:600px;'>
+        <h4 style='text-align:center; margin-bottom:8px;'>Water Level History (last 100 readings)</h4>
+        <canvas id='level-history-chart' width='600' height='220' style='max-width:100%; background:#fff; border-radius:8px; box-shadow:0 2px 8px #0001;'></canvas>
       </div>
     </div>
+    <div id="distance-display" style="text-align:center; font-size:1.2em; margin-top:10px;"></div>
   </div>
   <div class='dashboard-grid'>
     <a href='/settings/wifi' class='dashboard-widget'>
@@ -124,6 +131,10 @@
       <span class='widget-icon'>&#128221;</span>
       <span class='widget-label'>Logs</span>
     </a>
+    <a href='/logs/level.csv' download class='dashboard-widget'>
+      <span class='widget-icon'>&#128190;</span>
+      <span class='widget-label'>Download CSV</span>
+    </a>
     <a href='/help' class='dashboard-widget'>
       <span class='widget-icon'>&#10067;</span>
       <span class='widget-label'>Help</span>
@@ -132,8 +143,6 @@
 </div>
 <script>
 let currentLevel = 0;
-let tankShape = '{{TANK_SHAPE}}';
-let displayMode = '{{DISPLAY_MODE}}';
 let volumeUnit = 'L';
 function fetchVolumeUnit() {
   fetch('/api/volumeunit').then(r => r.json()).then(data => {
@@ -161,54 +170,20 @@ function handleVolumeUnitChange() {
     }).then(() => pollLevel());
   });
 }
-function showOrHideVolumeUnit() {
+function showOrHideVolumeUnit(displayMode) {
   const unitDiv = document.getElementById('volume-unit-select');
   if (!unitDiv) return;
   unitDiv.style.display = (displayMode === 'volume') ? '' : 'none';
 }
-window.addEventListener('DOMContentLoaded', function() {
-  fetchVolumeUnit();
-  handleVolumeUnitChange();
-  showOrHideVolumeUnit();
-});
-function animateTank(target, label) {
-  const fill = document.getElementById('water-fill');
-  const text = document.getElementById('level-text');
-  let displayed = currentLevel;
-  function step() {
-    displayed += (target - displayed) * 0.15;
-    if (Math.abs(displayed - target) < 0.2) displayed = target;
-    let h = Math.max(0, Math.min(200, 2 * displayed));
-    fill.setAttribute('y', 220 - h);
-    fill.setAttribute('height', h);
-    if (label !== undefined) text.textContent = label;
-    if (displayed !== target) requestAnimationFrame(step);
-    else currentLevel = target;
-  }
-  step();
+function updateTankSVG(tankShape) {
+  document.getElementById('rect-tank-svg').style.display = (tankShape === 'rectangle') ? '' : 'none';
+  document.getElementById('cyl-tank-svg').style.display = (tankShape === 'cylinder') ? '' : 'none';
 }
-function updateTankSVG() {
-  var shape = '{{TANK_SHAPE}}';
-  document.getElementById('rect-tank-svg').style.display = (shape === 'rectangle') ? '' : 'none';
-  document.getElementById('cyl-tank-svg').style.display = (shape === 'cylinder') ? '' : '';
-}
-window.addEventListener('DOMContentLoaded', updateTankSVG);
-// Animate rectangular tank water fill (2D fallback)
-function animateRectTank(percent) {
-  var fill = document.getElementById('rect-water-fill');
-  if (!fill) return;
-  var maxH = 120;
-  var h = Math.max(0, Math.min(maxH, maxH * percent / 100));
-  fill.setAttribute('y', 140 - h);
-  fill.setAttribute('height', h);
-}
-// Animate 3D rectangular tank water fill
 function animateRectTank3D(percent) {
   var fill = document.getElementById('water-fill-3d');
   if (!fill) return;
   var maxY = 190, minY = 70;
   var y = maxY - (maxY - minY) * (percent / 100);
-  // Animate the water polygon
   fill.setAttribute('points', `100,190 240,190 240,${y} 100,${y}`);
 }
 function animateCylTank3D(percent) {
@@ -223,53 +198,135 @@ function animateCylTank3D(percent) {
   ellipse.setAttribute('cy', y);
 }
 function pollLevel() {
-  fetch('/api/level').then(r => r.json()).then(data => {
-    let configUnit = '{{OUTPUT_UNIT}}';
-    let tankDepth = parseFloat('{{TANK_DEPTH}}');
-    let distance = parseFloat('{{DISTANCE}}');
-    let percent = data.level;
-    let label = '';
-    if (displayMode === 'volume') {
-      let level = tankDepth - distance;
-      if (level < 0) level = 0;
-      let volume = 0;
-      if (tankShape === 'rectangle') {
-        let width = parseFloat('{{TANK_WIDTH}}');
-        let length = parseFloat('{{TANK_LENGTH}}');
-        volume = (width * length * level) / 1000; // cm³ to liters
-      } else if (tankShape === 'cylinder') {
-        let diameter = parseFloat('{{TANK_DIAMETER}}');
-        volume = (Math.PI * Math.pow(diameter / 2, 2) * level) / 1000; // cm³ to liters
-      }
-      if (volumeUnit === 'gal') {
-        label = (volume * 0.264172).toFixed(1) + ' gal';
-      } else {
-        label = volume.toFixed(1) + ' L';
-      }
-    } else if (configUnit === 'cm') {
-      let levelCm = tankDepth - distance;
-      if (levelCm < 0) levelCm = 0;
-      label = levelCm.toFixed(1) + ' cm';
-    } else if (configUnit === 'in') {
-      let levelIn = (tankDepth - distance) / 2.54;
-      if (levelIn < 0) levelIn = 0;
-      label = levelIn.toFixed(1) + ' in';
+  fetch('/api/level').then(r => {
+    if (!r.ok) throw new Error('API error');
+    return r.json();
+  }).then(data => {
+    // Use only API response for all values
+    const tankShape = data.tank_shape;
+    const outputUnit = data.output_unit;
+    const displayStr = data.display;
+    const percent = data.percent;
+    const distanceCm = data.distance_cm;
+    const distanceIn = data.distance_in;
+    const levelCm = data.level_cm;
+    const levelIn = data.level_in;
+    const liters = data.liters;
+    const gallons = data.gallons;
+    const tankDepth = data.tank_depth;
+    const tankWidth = data.tank_width;
+    const tankLength = data.tank_length;
+    const tankDiameter = data.tank_diameter;
+    // Determine display mode from outputUnit or other logic if needed
+    let displayMode = outputUnit;
+    // Show/hide SVGs
+    updateTankSVG(tankShape);
+    // Show/hide volume unit selector
+    showOrHideVolumeUnit(displayMode);
+    // Update tank dimension labels
+    // Rectangle SVG
+    let rectDepthText = document.querySelector('#rect-tank-svg text[x="75"][y="130"]');
+    let rectWidthText = document.querySelector('#rect-tank-svg text[x="170"][y="215"]');
+    let rectLengthText = document.querySelector('#rect-tank-svg text[x="130"][y="30"]');
+    if (rectDepthText) rectDepthText.textContent = tankDepth ? tankDepth.toFixed(1) + ' cm' : '';
+    if (rectWidthText) rectWidthText.textContent = tankWidth ? tankWidth.toFixed(1) + ' cm' : '';
+    if (rectLengthText) rectLengthText.textContent = tankLength ? tankLength.toFixed(1) + ' cm' : '';
+    // Cylinder SVG
+    let cylDepthText = document.querySelector('#cyl-tank-svg text[x="25"][y="130"]');
+    let cylDiameterText = document.querySelector('#cyl-tank-svg text[x="110"][y="245"]');
+    if (cylDepthText) cylDepthText.textContent = tankDepth ? tankDepth.toFixed(1) + ' cm' : '';
+    if (cylDiameterText) cylDiameterText.textContent = tankDiameter ? tankDiameter.toFixed(1) + ' cm' : '';
+    // Update distance display
+    if (displayMode === 'distance') {
+      let label = (outputUnit === 'cm') ? `${distanceCm.toFixed(1)} cm` : (outputUnit === 'in') ? `${distanceIn.toFixed(1)} in` : `${distanceCm.toFixed(1)}`;
+      document.getElementById('distance-display').textContent = 'Distance: ' + label;
     } else {
-      label = percent.toFixed(1) + ' %';
+      document.getElementById('distance-display').textContent = '';
     }
+    // Update label and fill for each mode
+    let label = '';
+    let fillPercent = percent;
+    if (displayMode === 'volume') {
+      if (volumeUnit === 'gal') {
+        label = gallons.toFixed(1) + ' gal';
+      } else {
+        label = liters.toFixed(1) + ' L';
+      }
+    } else if (displayMode === 'cm') {
+      label = levelCm.toFixed(1) + ' cm';
+    } else if (displayMode === 'in') {
+      label = levelIn.toFixed(1) + ' in';
+    } else if (displayMode === 'percent') {
+      label = percent.toFixed(1) + ' %';
+    } else if (displayMode === 'distance') {
+      // already handled above
+      label = '';
+    } else {
+      label = displayStr;
+    }
+    // Update SVG fill and label
     if (tankShape === 'rectangle') {
-      animateRectTank3D(percent);
+      animateRectTank3D(fillPercent);
       document.getElementById('rect-water-label').textContent = label;
     } else if (tankShape === 'cylinder') {
-      animateCylTank3D(percent);
+      animateCylTank3D(fillPercent);
       document.getElementById('cyl-water-label').textContent = label;
     }
+  }).catch(err => {
+    document.getElementById('distance-display').textContent = 'Error: Unable to fetch tank data.';
+    document.getElementById('rect-water-label').textContent = '';
+    document.getElementById('cyl-water-label').textContent = '';
   });
 }
-setInterval(pollLevel, 1200);
-window.addEventListener('DOMContentLoaded', pollLevel);
+function renderLevelHistoryChart() {
+  fetch('/api/level/history?count=100').then(r => r.json()).then(data => {
+    const ctx = document.getElementById('level-history-chart').getContext('2d');
+    if (!Array.isArray(data)) {
+      if (window.levelChart) window.levelChart.destroy();
+      ctx.clearRect(0, 0, 600, 220);
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#888';
+      ctx.fillText('No history data available', 40, 120);
+      return;
+    }
+    const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+    const percent = data.map(d => d.percent);
+    if (window.levelChart) window.levelChart.destroy();
+    window.levelChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Water Level (%)',
+          data: percent,
+          borderColor: '#0288d1',
+          backgroundColor: 'rgba(2,136,209,0.08)',
+          fill: true,
+          tension: 0.2,
+          pointRadius: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { min: 0, max: 100, title: { display: true, text: '%' } },
+          x: { title: { display: true, text: 'Time' }, ticks: { maxTicksLimit: 8 } }
+        }
+      }
+    });
+  });
+}
+setInterval(() => { pollLevel(); renderLevelHistoryChart(); }, 1200);
+window.addEventListener('DOMContentLoaded', function() {
+  fetchVolumeUnit();
+  handleVolumeUnitChange();
+  pollLevel();
+  renderLevelHistoryChart();
+});
 </script>
 <script src="/script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {{FOOTER}}
 </body>
 </html> 

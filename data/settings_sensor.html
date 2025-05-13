@@ -15,8 +15,8 @@
     <input name="offset" id="offset" type="number" step="0.1" value="{{SENSOR_OFFSET}}" required>
     <label for="full">Full Distance (cm)</label>
     <input name="full" id="full" type="number" step="0.1" value="{{SENSOR_FULL}}" required>
-    <label for="sensorReadInterval">Reading Interval (seconds)</label>
-    <input name="sensorReadInterval" id="sensorReadInterval" type="number" min="1" value="{{SENSOR_READ_INTERVAL}}" required>
+    <label for="sensorReadInterval">Sensor Read Interval (seconds)</label>
+    <input type="number" name="sensorReadInterval" id="sensorReadInterval" min="1" value="{{SENSOR_READ_INTERVAL}}">
     <input type="submit" value="Save">
   </form>
   <div id="sensorMsg"></div>

@@ -33,12 +33,41 @@
       <option value="PAROLA_HW" {{PAROLA_SELECTED}}>PAROLA_HW</option>
       <option value="ICSTATION_HW" {{ICSTATION_SELECTED}}>ICSTATION_HW</option>
     </select>
+    <label for="displayType">Display Type</label>
+    <select name="displayType" id="displayType">
+      <option value="matrix" {{DISPLAY_TYPE_MATRIX_SELECTED}}>Matrix (8x8 or similar)</option>
+      <option value="sevensegment" {{DISPLAY_TYPE_SEVENSEGMENT_SELECTED}}>7-Segment (8-digit MAX7219)</option>
+      <option value="ssd1306" {{DISPLAY_TYPE_SSD1306_SELECTED}}>SSD1306 OLED</option>
+    </select>
+    <div id="ssd1306-size-row" style="display:none; margin:10px 0;">
+      <label for="ssd1306Size">SSD1306 Size</label>
+      <select name="ssd1306Size" id="ssd1306Size">
+        <option value="128x64" {{SSD1306_128x64_SELECTED}}>128x64</option>
+        <option value="128x32" {{SSD1306_128x32_SELECTED}}>128x32</option>
+      </select>
+    </div>
+    <label for="volumeUnit">Volume Unit</label>
+    <select name="volumeUnit" id="volumeUnit">
+      <option value="L" {{VOLUME_UNIT_L_SELECTED}}>Liters (L)</option>
+      <option value="gal" {{VOLUME_UNIT_GAL_SELECTED}}>Gallons (gal)</option>
+    </select>
     <input type="submit" value="Save">
   </form>
   <div id="displayMsg"></div>
   <a href="/" class="back-home">← Back to Home</a>
 </div>
 <script src="/script.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var typeSel = document.getElementById('displayType');
+  var sizeRow = document.getElementById('ssd1306-size-row');
+  function updateSizeRow() {
+    sizeRow.style.display = (typeSel.value === 'ssd1306') ? '' : 'none';
+  }
+  typeSel.addEventListener('change', updateSizeRow);
+  updateSizeRow();
+});
+</script>
 {{FOOTER}}
 </body>
 </html> 

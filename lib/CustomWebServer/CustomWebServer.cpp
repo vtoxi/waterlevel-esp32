@@ -220,8 +220,41 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         configManager.load(config);
         sensor.setTankHeightCm(config.tankDepth);
         float percent = 0.0f;
-        String displayStr = getDisplayString(config, lastDistance, percent);
-        String json = "{\"level\":" + String(percent, 1) + ",\"display\":\"" + displayStr + "\"}";
+        float tankDepth = config.tankDepth;
+        float distance = lastDistance;
+        float levelCm = tankDepth - distance;
+        if (levelCm < 0) levelCm = 0;
+        float levelIn = levelCm / 2.54f;
+        float distanceIn = distance / 2.54f;
+        float liters = 0.0f;
+        float gallons = 0.0f;
+        if (config.tankShape == "rectangle" && config.tankWidth > 0 && config.tankLength > 0) {
+            liters = (config.tankWidth * config.tankLength * levelCm) / 1000.0f;
+        } else if (config.tankShape == "cylinder" && config.tankDiameter > 0) {
+            float radius = config.tankDiameter / 2.0f;
+            float area = 3.14159265f * radius * radius;
+            liters = (area * levelCm) / 1000.0f;
+        }
+        gallons = liters * 0.264172f;
+        percent = (distance < 0 || tankDepth <= 0) ? 0.0f : ((tankDepth - distance) / tankDepth * 100.0f);
+        if (percent < 0) percent = 0;
+        String displayStr = getDisplayString(config, distance, percent);
+        String json = "{";
+        json += "\"distance_cm\":" + String(distance, 2);
+        json += ",\"distance_in\":" + String(distanceIn, 2);
+        json += ",\"level_cm\":" + String(levelCm, 2);
+        json += ",\"level_in\":" + String(levelIn, 2);
+        json += ",\"percent\":" + String(percent, 1);
+        json += ",\"liters\":" + String(liters, 2);
+        json += ",\"gallons\":" + String(gallons, 2);
+        json += ",\"output_unit\":\"" + config.outputUnit + "\"";
+        json += ",\"tank_shape\":\"" + config.tankShape + "\"";
+        json += ",\"tank_depth\":" + String(config.tankDepth, 2);
+        json += ",\"tank_width\":" + String(config.tankWidth, 2);
+        json += ",\"tank_length\":" + String(config.tankLength, 2);
+        json += ",\"tank_diameter\":" + String(config.tankDiameter, 2);
+        json += ",\"display\":\"" + displayStr + "\"";
+        json += "}";
         request->send(200, "application/json", json);
     });
 
@@ -288,6 +321,8 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         String displayModeForDashboard = config.outputUnit == "quantity" ? "volume" : config.displayMode;
         html.replace("{{DISPLAY_MODE}}", displayModeForDashboard);
         html.replace("{{VOLUME_UNIT}}", config.volumeUnit.length() ? config.volumeUnit : "L");
+        html.replace("{{VOLUME_UNIT_L_SELECTED}}", config.volumeUnit == "L" ? "selected" : "");
+        html.replace("{{VOLUME_UNIT_GAL_SELECTED}}", config.volumeUnit == "gal" ? "selected" : "");
         request->send(200, "text/html", html);
     });
 
@@ -353,11 +388,8 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         handleSettingsUpdate(request, "Tank", [&](Config& config) {
             float depth = request->getParam("tankDepth", true)->value().toFloat();
             String depthUnit = request->getParam("tankDepthUnit", true)->value();
-            if (depthUnit == "in") {
-                depth *= 2.54f;
-                Logger::info("Converting tank depth from inches to cm: " + String(depth));
-            }
             config.tankDepth = depth;
+            config.tankDepthUnit = depthUnit;
             if (request->hasParam("outputUnit", true)) {
                 config.outputUnit = request->getParam("outputUnit", true)->value();
             }
@@ -433,6 +465,8 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         html.replace("{{PAROLA_SELECTED}}", config.displayHardwareType == "PAROLA_HW" ? "selected" : "");
         html.replace("{{ICSTATION_SELECTED}}", config.displayHardwareType == "ICSTATION_HW" ? "selected" : "");
         html.replace("{{SCROLL_CHECKED}}", config.displayScrollEnabled ? "checked" : "");
+        html.replace("{{DISPLAY_TYPE_MATRIX_SELECTED}}", config.displayType == "matrix" ? "selected" : "");
+        html.replace("{{DISPLAY_TYPE_SEVENSEGMENT_SELECTED}}", config.displayType == "sevensegment" ? "selected" : "");
         request->send(200, "text/html", html);
     });
 
@@ -443,6 +477,12 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
             config.displayMode = request->getParam("mode", true)->value();
             config.displayHardwareType = request->getParam("hardwareType", true)->value();
             config.displayScrollEnabled = request->hasParam("scroll", true);
+            if (request->hasParam("displayType", true)) {
+                config.displayType = request->getParam("displayType", true)->value();
+            }
+            if (request->hasParam("volumeUnit", true)) {
+                config.volumeUnit = request->getParam("volumeUnit", true)->value();
+            }
             Serial.printf("[DEBUG] Saving displayScrollEnabled: %d\n", config.displayScrollEnabled);
             // No direct hardware update here; main loop will apply changes
         }, false);
@@ -521,8 +561,12 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
     _server.on("/settings/device", HTTP_POST, [&](AsyncWebServerRequest *request)
                {
         handleSettingsUpdate(request, "Device", [&](Config& config) {
-            config.deviceName = request->getParam("devicename", true)->value();
-            config.otaEnabled = request->getParam("ota", true)->value();
+            if (request->hasParam("deviceName", true)) {
+                config.deviceName = request->getParam("deviceName", true)->value();
+            }
+            if (request->hasParam("otaEnabled", true)) {
+                config.otaEnabled = request->getParam("otaEnabled", true)->value();
+            }
             // No direct hardware update here; main loop will apply changes
         }, false);
     });
@@ -694,6 +738,65 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         }
     });
 
+    // --- Water Level History API Endpoint ---
+    _server.on("/api/level/history", HTTP_GET, [](AsyncWebServerRequest *request) {
+        int count = 100;
+        if (request->hasParam("count")) {
+            count = request->getParam("count")->value().toInt();
+            if (count <= 0) count = 100;
+        }
+        File f = LittleFS.open("/level_log.csv", "r");
+        if (!f) {
+            request->send(200, "application/json", "[]");
+            return;
+        }
+        // Skip header
+        String header = f.readStringUntil('\n');
+        std::vector<String> lines;
+        while (f.available()) {
+            String line = f.readStringUntil('\n');
+            if (line.length() > 0) {
+                lines.push_back(line);
+                if ((int)lines.size() > count) lines.erase(lines.begin());
+            }
+        }
+        f.close();
+        if (lines.empty()) {
+            request->send(200, "application/json", "[]");
+            return;
+        }
+        String json = "[";
+        for (size_t i = 0; i < lines.size(); ++i) {
+            String l = lines[i];
+            int idx = 0;
+            unsigned long ts = l.substring(0, idx = l.indexOf(',')).toInt();
+            l = l.substring(idx + 1);
+            float distance = l.substring(0, idx = l.indexOf(',')).toFloat();
+            l = l.substring(idx + 1);
+            float percent = l.substring(0, idx = l.indexOf(',')).toFloat();
+            l = l.substring(idx + 1);
+            float levelCm = l.substring(0, idx = l.indexOf(',')).toFloat();
+            l = l.substring(idx + 1);
+            float levelIn = l.substring(0, idx = l.indexOf(',')).toFloat();
+            l = l.substring(idx + 1);
+            float liters = l.substring(0, idx = l.indexOf(',')).toFloat();
+            l = l.substring(idx + 1);
+            float gallons = l.toFloat();
+            if (i > 0) json += ",";
+            json += "{";
+            json += "\"timestamp\":" + String(ts);
+            json += ",\"distance_cm\":" + String(distance, 2);
+            json += ",\"percent\":" + String(percent, 1);
+            json += ",\"level_cm\":" + String(levelCm, 2);
+            json += ",\"level_in\":" + String(levelIn, 2);
+            json += ",\"liters\":" + String(liters, 2);
+            json += ",\"gallons\":" + String(gallons, 2);
+            json += "}";
+        }
+        json += "]";
+        request->send(200, "application/json", json);
+    });
+
     // 404 Not Found handler (must be last)
     _server.onNotFound([](AsyncWebServerRequest *request) {
         String html = loadTemplateFile("/404.html");
@@ -704,6 +807,10 @@ void CustomWebServer::setupRoutes(ConfigManager &configManager, WaterLevelSensor
         html.replace("{{HEADER}}", header);
         html.replace("{{FOOTER}}", footer);
         request->send(404, "text/html", html);
+    });
+
+    _server.on("/logs/level.csv", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(LittleFS, "/level_log.csv", "text/csv");
     });
 }
 
